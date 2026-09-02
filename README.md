@@ -8,6 +8,24 @@ scoring, three balls per game and a game-over screen.
 The game builds SFML in-tree from a git submodule, so no system-wide SFML
 installation or `find_package` step is required.
 
+## How this game was made
+
+PimBalGame was designed and implemented end-to-end by an AI coding agent,
+[Ornith 1.5 35B-A3B](https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B) — a
+sparse MoE LLM (35B total parameters, ~3B active) — running inside the
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent loop.
+Model inference was served locally with
+[FreeToken](https://github.com/FlashML-org/FreeToken), a high-throughput
+transformer inference engine for sparse models.
+
+| Component        | Tool / Model                                                        |
+| ---------------- | ------------------------------------------------------------------- |
+| Coding agent     | [Ornith 1.5 35B-A3B](https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B) |
+| Agent harness    | [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)     |
+| Inference engine | [FreeToken](https://github.com/FlashML-org/FreeToken)                   |
+| Runtime hardware | NVIDIA RTX 5070 Ti (16 GB VRAM), 96 GB DDR4 system RAM              |
+| Game library     | [SFML](https://www.sfml-dev.org/) (Graphics, Window, System)        |
+
 ## Features
 
 - **Fixed-timestep physics loop.** The simulation runs at a constant
