@@ -1,12 +1,15 @@
 # PimBalGame
 
 A pinball game written in C++17 using the [SFML](https://www.sfml-dev.org/)
-library. It ships with a complete, self-contained implementation: a custom
-2D physics loop, two flippers, four bumpers, a chargeable plunger launcher,
+library, plus a small set of developer tools for building its art assets. The
+game itself ships a complete, self-contained implementation: a custom 2D
+physics loop, two flippers, four bumpers, a chargeable plunger launcher,
 scoring, three balls per game and a game-over screen.
 
 The game builds SFML in-tree from a git submodule, so no system-wide SFML
-installation or `find_package` step is required.
+installation or `find_package` step is required. It also ships
+`tools/svg2png`, a tool that rasterizes SVG art to PNG and packs several PNGs
+into a single embeddable C++ texture atlas — see [Release notes](#release-notes).
 
 ![PimBalGame screenshot](docs/screen.png)
 
@@ -80,6 +83,10 @@ pimbalgame/
 ├── assets/
 │   └── fonts/
 │       └── DejaVuSans.ttf  # Bundled HUD font (copied next to the executable)
+├── tools/
+│   └── svg2png/            # svg2png: SVG→PNG rasterizer + texture-atlas packer
+│       ├── CMakeLists.txt
+│       └── main.cpp
 ├── .gitignore
 └── README.md
 ```
@@ -210,6 +217,56 @@ cmake --build . --config Release
 
 On Windows the executable is at `build\Release\pimbalgame.exe`. The bundled font
 is copied next to the executable by the build so it can be located at runtime.
+
+## Release notes
+
+| Version | Date       | Summary                                                                                     |
+| ------- | ---------- | ------------------------------------------------------------------------------------------- |
+| 1.0     | 2026-09-02 | Initial release: a simple pinball game.                                                     |
+| 1.1     | 2026-09-02 | Added `tools/svg2png`, a developer tool for building the game's art assets.                 |
+
+### v1.1 — `tools/svg2png` (2026-09-02)
+
+A small C++ tool for turning the project's vector art into ready-to-use
+textures. It relies only on two git submodules under `dependencies/` —
+[CImg](https://github.com/GreycLab/CImg) (image buffer / atlas packing) and
+[lodepng](https://github.com/lvandeve/lodepng) (PNG decode / encode) — added
+the same way SFML is.
+
+It runs in two modes, selected as the first argument:
+
+- **`svg2png png`** — rasterizes an `.svg` into a `.png`. The SVG is parsed
+  directly (it is vector/XML, so neither CImg nor lodepng can draw it), rendered
+  into an anti-aliased, supersampled buffer with CImg, and encoded with lodepng.
+  Input comes from `--svg-path` or `--svg-string`, and the output path is set
+  with `--save-path`.
+
+- **`svg2png texture`** — packs several `.png` textures into a single
+  **embeddable** C++ header (`--output-path out.cxxpng`). The tool shelf-packs
+  the textures (`--shelf-width`, `--padding`) into one atlas PNG and emits a
+  header that:
+  - embeds the packed atlas as raw bytes in `texture_atlas::atlas_png`, and
+  - exposes `texture_atlas::textures()`, a `std::map<std::string, coordinate_t>`
+    mapping each texture name to its rectangle (`x`, `y`, `width`, `height`)
+    inside the atlas.
+
+  A texture can therefore be pulled straight out of the all-in-one atlas and
+  used in-game without shipping any image files, e.g.:
+
+  ```cpp
+  #include "textures.cxxpng"
+  unsigned w, h; std::vector<unsigned char> px;
+  lodepng::decode(px, w, h, texture_atlas::atlas_png.data(),
+                  texture_atlas::atlas_png.size(), LCT_RGBA, 8);
+  const auto& rect = texture_atlas::textures().at("ball");
+  /* blit px at (rect.x, rect.y, rect.width, rect.height) */
+  ```
+
+  `texture` also accepts `--atlas-path` to dump the raw packed atlas PNG
+  alongside the header for inspection.
+
+The tools are built only when the project is configured with `-DBUILD_TOOLS=ON`
+(default `ON`), wired through the top-level `CMakeLists.txt`.
 
 ## License
 
