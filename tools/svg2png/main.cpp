@@ -1,18 +1,28 @@
 // ---------------------------------------------------------------------------
-// svg2png — convert an SVG document into a PNG file.
+// svg2png — convert SVG to PNG and pack PNGs into an embeddable texture atlas.
 //
-// SVG is a *vector* (XML) format, so neither CImg nor lodepng can rasterize
-// it on its own.  This tool therefore:
+// Two modes (selected as the first argument):
+//
+//   svg2png png   --svg-path <f.svg>   --save-path <out.png>
+//                   svg2png png         --svg-string "<svg>...</svg>" --save-path <out.png>
+//   svg2png texture --output-path <o.cxxpng> --png-path <t1.png> [--png-path ...]
+//
+// Mode "png": SVG is a *vector* (XML) format, so neither CImg nor lodepng can
+// rasterize it on its own.  This mode therefore:
 //   * parses the SVG markup and its presentation attributes itself,
 //   * rasterizes the shapes into an anti-aliased (supersampled) image using
 //     CImg as the image buffer / manipulation primitive,
 //   * encodes the resulting pixels as PNG with lodepng.
+//   Supported elements: svg, g, defs, symbol, use, rect, circle, ellipse, line,
+//   polyline, polygon, path.  Text, embedded <image>, clip paths, gradients,
+//   masks and filters are intentionally out of scope.
 //
-// Supported elements: svg, g, defs, symbol, use, rect, circle, ellipse, line,
-// polyline, polygon, path.  Presentation attributes for fill / stroke,
-// opacities, stroke-width, line caps, transforms and basic color / unit /
-// length handling are implemented.  Text, embedded <image>, clip paths,
-// gradients, masks and filters are intentionally out of scope.
+// Mode "texture": packs several already-encoded PNG textures into a single
+// in-memory atlas and writes a C++ header (.cxxpng) that embeds the atlas PNG
+// bytes together with a std::map<std::string, coordinate_t> giving each
+// texture's rectangle inside the atlas.  The header can be #included into C++
+// code to embed the textures directly in an application.  lodepng decodes the
+// source PNGs, CImg builds the atlas, and lodepng re-encodes it.
 // ---------------------------------------------------------------------------
 
 // Headless CImg: no X11 / GDI / SDL display code is pulled in.
@@ -31,6 +41,8 @@ using namespace cimg_library;
 #include <cmath>
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -1045,13 +1057,20 @@ struct Options {
 
 void printUsage() {
     std::cout <<
-        "svg2png — convert an SVG document to a PNG image.\n"
+        "svg2png — SVG to PNG conversion and texture-atlas packing.\n"
         "\n"
         "Usage:\n"
-        "  svg2png --svg-path <file.svg> --save-path <out.png>\n"
-        "  svg2png --svg-string \"<svg>...</svg>\" --save-path <out.png>\n"
+        "  svg2png png --svg-path <file.svg> --save-path <out.png>\n"
+        "  svg2png png --svg-string \"<svg>...</svg>\" --save-path <out.png>\n"
+        "  svg2png texture --output-path <out.cxxpng> --png-path <t1.png> [--png-path ...]\n"
         "\n"
-        "Options:\n"
+        "Modes:\n"
+        "  png       Convert an SVG document to a PNG image.\n"
+        "  texture   Pack several PNGs into a single in-memory atlas and write a C++\n"
+        "            header (.cxxpng) embedding the atlas PNG bytes plus a\n"
+        "            std::map<std::string, coordinate_t> of each texture's rectangle.\n"
+        "\n"
+        "png options:\n"
         "  --svg-path <p>     Path to the input .svg file.\n"
         "  --svg-string <s>   Raw SVG markup as a string.\n"
         "  --save-path <p>    Output .png path (required).\n"
@@ -1060,6 +1079,14 @@ void printUsage() {
         "  -S, --supersample  Force supersampling factor (default: auto 1..8).\n"
         "  --background <c>   Background color, e.g. \"#ffffff\" (default: white).\n"
         "  --transparent      Make the background transparent.\n"
+        "\n"
+        "texture options:\n"
+        "  --output-path <p>  Output .cxxpng C++ header (required).\n"
+        "  --png-path <p>     A source PNG texture to pack (repeatable, required).\n"
+        "  --atlas-path <p>   Also write the raw packed atlas PNG here (optional).\n"
+        "  --shelf-width <n>  Max atlas width per shelf (default: 2048, 0 = single row).\n"
+        "  --padding <n>      Gap (px) between packed textures (default: 1).\n"
+        "\n"
         "  -?, --help         Show this help.\n"
         "  --version          Print version.\n";
 }
@@ -1174,35 +1201,304 @@ int run(const Options& opt) {
     return 0;
 }
 
-} // namespace
+// ---------------------------------------------------------------------------
+// Texture mode: pack several PNG textures into one in-memory atlas and emit a
+// C++ header (.cxxpng) that embeds the atlas PNG bytes together with a map of
+// texture name -> rectangle (coordinate_t) inside the atlas.  The result can be
+// #included into C++ code to embed the textures without shipping extra files.
+// ---------------------------------------------------------------------------
 
-int main(int argc, char** argv) {
-    Options opt;
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        auto next = [&](std::string& out) {
-            if (i + 1 < argc) { out = argv[i + 1]; ++i; }
-        };
-        if (arg == "--svg-path" || arg == "--input") { std::string v; next(v); opt.svgPath = v; }
-        else if (arg == "--svg-string") { std::string v; next(v); opt.svgString = v; }
-        else if (arg == "--save-path" || arg == "--output" || arg == "-o") { std::string v; next(v); opt.savePath = v; }
-        else if (arg == "-w" || arg == "--width") { std::string v; next(v); opt.width = std::atoi(v.c_str()); }
-        else if (arg == "-h" || arg == "--height") { std::string v; next(v); opt.height = std::atoi(v.c_str()); }
-        else if (arg == "-S" || arg == "--supersample") { std::string v; next(v); opt.supersample = std::atoi(v.c_str()); }
-        else if (arg == "--background") { std::string v; next(v); opt.background = v; }
-        else if (arg == "--transparent") { opt.transparent = true; }
-        else if (arg == "--help" || arg == "-?") { printUsage(); return 0; }
-        else if (arg == "--version") {
-            std::cout << "svg2png 1.0 (CImg " << cimg_version << " / lodepng " << LODEPNG_VERSION_STRING << ")\n";
-            return 0;
-        } else {
-            std::cerr << "warning: unknown argument: " << arg << "\n";
-        }
+struct Rect {
+    int x = 0, y = 0, w = 0, h = 0;
+};
+
+struct TextureOptions {
+    std::string outputPath;          // .cxxpng header to generate (required)
+    std::vector<std::string> pngPaths; // source PNGs to pack (repeatable)
+    std::string atlasPath;           // optional: also write the raw atlas PNG here
+    int shelfWidth = 2048;           // max atlas width per shelf (0 = single row)
+    int padding = 1;                 // gap (px) between packed textures
+};
+
+std::string fileStem(const std::string& path) {
+    std::filesystem::path p(path);
+    std::string stem = p.stem().string();
+    return stem.empty() ? p.filename().string() : stem;
+}
+
+std::string escapeCppString(const std::string& s) {
+    std::string out;
+    for (char c : s) {
+        if (c == '\\' || c == '"') { out.push_back('\\'); out.push_back(c); }
+        else out.push_back(c);
     }
-    try {
-        return run(opt);
-    } catch (const std::exception& e) {
-        std::cerr << "error: " << e.what() << "\n";
+    return out;
+}
+
+// FNV-1a hash used to build a unique include guard for the generated header.
+std::string hashGuard(const std::string& s) {
+    std::uint64_t h = 1469598103934665603ULL;
+    for (unsigned char c : s) { h ^= c; h *= 1099511628211ULL; }
+    char buf[24];
+    std::snprintf(buf, sizeof(buf), "%llu", static_cast<unsigned long long>(h));
+    return buf;
+}
+
+// Decode a PNG into a 4-channel (RGBA) CImg buffer.  lodepng owns the decoding.
+bool decodePngToCImg(const std::string& path, CImg<unsigned char>& img, std::string& err) {
+    std::vector<unsigned char> bytes;
+    unsigned w = 0, h = 0;
+    unsigned code = lodepng::decode(bytes, w, h, path, LCT_RGBA, 8);
+    if (code) { err = lodepng_error_text(code); return false; }
+    if (w == 0 || h == 0) { err = "empty image"; return false; }
+    img.assign(w, h, 1, 4, 0);
+    const size_t wh = static_cast<size_t>(w) * h;
+    if (bytes.size() < wh * 4) { err = "truncated png"; return false; }
+    // lodepng delivers interleaved RGBA; CImg stores channels block-planar, so
+    // de-interleave while copying.
+    for (size_t i = 0; i < wh; ++i) {
+        img.data()[i]       = bytes[i * 4 + 0];
+        img.data()[i + wh]  = bytes[i * 4 + 1];
+        img.data()[i + 2 * wh] = bytes[i * 4 + 2];
+        img.data()[i + 3 * wh] = bytes[i * 4 + 3];
+    }
+    return true;
+}
+
+// Shelf (row) packer: place textures left-to-right, wrapping to a new shelf
+// when one does not fit.  Produces a tight bounding box.  `padding` is the gap
+// between neighbouring textures.
+void packShelves(const std::vector<Rect>& texs, int shelfWidth, int padding,
+                 std::vector<Rect>& out, int& aw, int& ah) {
+    int shelfX = 0, shelfY = 0, rightmost = 0, bottommost = 0;
+    for (const auto& t : texs) {
+        if (shelfX != 0 && shelfWidth > 0 && shelfX + t.w > shelfWidth) {
+            shelfY = bottommost;
+            shelfX = 0;
+        }
+        out.push_back(Rect{shelfX, shelfY, t.w, t.h});
+        rightmost = std::max(rightmost, shelfX + t.w);
+        bottommost = std::max(bottommost, shelfY + t.h);
+        shelfX += t.w + padding;
+    }
+    aw = rightmost;
+    ah = bottommost;
+}
+
+// Emit a C++ byte-initialiser list, 16 values per line.
+void emitByteList(std::ostream& os, const std::vector<unsigned char>& bytes) {
+    os << "{\n    ";
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        if (i != 0 && i % 16 == 0) os << "\n    ";
+        char buf[8];
+        std::snprintf(buf, sizeof(buf), "0x%02x", bytes[i]);
+        os << buf;
+        if (i + 1 < bytes.size()) os << ", ";
+    }
+    if (!bytes.empty()) os << "\n    ";
+    os << "}";
+}
+
+int runTexture(const TextureOptions& opt) {
+    if (opt.outputPath.empty()) {
+        std::cerr << "error: --output-path is required\n";
         return 1;
     }
+    if (opt.pngPaths.empty()) {
+        std::cerr << "error: at least one --png-path is required\n";
+        return 1;
+    }
+
+    // 1) Decode every source PNG into an RGBA buffer (lodepng).
+    std::vector<Rect> sizes;
+    std::vector<std::string> names;
+    std::vector<CImg<unsigned char>> imgs;
+    sizes.reserve(opt.pngPaths.size());
+    names.reserve(opt.pngPaths.size());
+    imgs.reserve(opt.pngPaths.size());
+    for (const auto& p : opt.pngPaths) {
+        CImg<unsigned char> img;
+        std::string err;
+        if (!decodePngToCImg(p, img, err)) {
+            std::cerr << "error: cannot read '" << p << "': " << err << "\n";
+            return 1;
+        }
+        sizes.push_back(Rect{0, 0, img.width(), img.height()});
+        names.push_back(fileStem(p));
+        imgs.push_back(std::move(img));
+    }
+
+    // 2) Pack the textures into a single atlas (CImg).
+    std::vector<Rect> placed;
+    int aw = 0, ah = 0;
+    packShelves(sizes, opt.shelfWidth, opt.padding, placed, aw, ah);
+
+    CImg<unsigned char> atlas(aw, ah, 1, 4, 0); // fully transparent background
+    for (size_t i = 0; i < imgs.size(); ++i) {
+        const Rect& r = placed[i];
+        for (int ty = 0; ty < r.h; ++ty)
+            for (int tx = 0; tx < r.w; ++tx) {
+                // Channel-by-channel: CImg operator() addresses a single channel.
+                atlas(r.x + tx, r.y + ty, 0, 0) = imgs[i](tx, ty, 0, 0);
+                atlas(r.x + tx, r.y + ty, 0, 1) = imgs[i](tx, ty, 0, 1);
+                atlas(r.x + tx, r.y + ty, 0, 2) = imgs[i](tx, ty, 0, 2);
+                atlas(r.x + tx, r.y + ty, 0, 3) = imgs[i](tx, ty, 0, 3);
+            }
+    }
+
+    // 3) Encode the atlas PNG.  The bytes are read back so they can be embedded.
+    std::string atlasFile = opt.atlasPath.empty() ? (opt.outputPath + ".atlas.png") : opt.atlasPath;
+    const size_t wh = static_cast<size_t>(aw) * ah;
+    // CImg stores channels block-planar; interleave into RGBA for lodepng.
+    std::vector<unsigned char> interleaved(wh * 4);
+    for (size_t i = 0; i < wh; ++i) {
+        interleaved[i * 4 + 0] = atlas.data()[i];
+        interleaved[i * 4 + 1] = atlas.data()[i + wh];
+        interleaved[i * 4 + 2] = atlas.data()[i + 2 * wh];
+        interleaved[i * 4 + 3] = atlas.data()[i + 3 * wh];
+    }
+    unsigned e = lodepng::encode(atlasFile, interleaved, aw, ah, LCT_RGBA, 8);
+    if (e) {
+        std::cerr << "error: atlas encode failed: " << lodepng_error_text(e) << "\n";
+        return 1;
+    }
+    std::ifstream f(atlasFile, std::ios::binary);
+    std::vector<unsigned char> pngBytes((std::istreambuf_iterator<char>(f)),
+                                        std::istreambuf_iterator<char>());
+    if (opt.atlasPath.empty()) std::remove(atlasFile.c_str()); // keep only the header
+
+    // 4) Emit the C++ header: embedded PNG bytes + name -> coordinate map.
+    std::ofstream hdr(opt.outputPath);
+    if (!hdr) {
+        std::cerr << "error: cannot open output '" << opt.outputPath << "'\n";
+        return 1;
+    }
+    const std::string guard = "SVG2PNG_ATLAS_" + hashGuard(opt.outputPath) + "_H_";
+    hdr << "// ---------------------------------------------------------------------------\n";
+    hdr << "// This file was GENERATED by svg2png (texture mode). Do not edit by hand.\n";
+    hdr << "//\n";
+    hdr << "// It embeds a single packed texture atlas (as raw PNG bytes) together with a\n";
+    hdr << "// std::map<std::string, coordinate_t> giving each texture's rectangle inside\n";
+    hdr << "// the atlas.  #include it to embed the textures directly in your application.\n";
+    hdr << "//\n";
+    hdr << "// Example:\n";
+    hdr << "//   unsigned w, h;\n";
+    hdr << "//   std::vector<unsigned char> px;\n";
+    hdr << "//   lodepng::decode(texture_atlas::atlas_png.data(), w, h, LCT_RGBA,\n";
+    hdr << "//                 texture_atlas::atlas_png.size());\n";
+    hdr << "//   for (const auto& kv : texture_atlas::textures())\n";
+    hdr << "//     { const auto& c = kv.second; /* blit px at (c.x,c.y,c.width,c.height) */; }\n";
+    hdr << "// ---------------------------------------------------------------------------\n";
+    hdr << "#ifndef " << guard << "\n#define " << guard << "\n\n";
+    hdr << "#include <array>\n#include <cstdint>\n#include <map>\n#include <string>\n\n";
+    hdr << "namespace texture_atlas {\n\n";
+    hdr << "  // Rectangle of a texture inside the atlas (top-left origin, pixels).\n";
+    hdr << "  struct coordinate_t {\n";
+    hdr << "      std::uint32_t x = 0, y = 0, width = 0, height = 0;\n";
+    hdr << "  };\n\n";
+    hdr << "  // Raw PNG bytes of the packed atlas (decode with lodepng).\n";
+    hdr << "  static const std::array<std::uint8_t, " << pngBytes.size() << "> atlas_png = ";
+    emitByteList(hdr, pngBytes);
+    hdr << ";\n\n";
+    hdr << "  // Name -> rectangle map for every packed texture.\n";
+    hdr << "  inline const std::map<std::string, coordinate_t>& textures() {\n";
+    hdr << "      static const std::map<std::string, coordinate_t> m = {\n";
+    for (size_t i = 0; i < placed.size(); ++i) {
+        hdr << "          {\"" << escapeCppString(names[i]) << "\", {"
+            << placed[i].x << ", " << placed[i].y << ", "
+            << placed[i].w << ", " << placed[i].h << "}},\n";
+    }
+    hdr << "      };\n";
+    hdr << "      return m;\n";
+    hdr << "  }\n\n";
+    hdr << "} // namespace texture_atlas\n\n";
+    hdr << "#endif // " << guard << "\n";
+
+    std::cout << "wrote " << opt.outputPath << " (" << placed.size() << " textures, "
+              << aw << "x" << ah << " atlas, " << pngBytes.size() << " PNG bytes)\n";
+    return 0;
+}
+
+} // namespace
+
+// Parse the options that follow a `png` subcommand (or bare options, kept for
+// backward compatibility).  Returns false on a usage error, true on success
+// (including when --help was printed, which already returned 0 by the caller).
+bool parsePngArgs(int argc, char** argv, Options& opt) {
+    for (int i = 0; i < argc; ++i) {
+        std::string arg = argv[i];
+        auto next = [&](std::string& out) -> bool {
+            if (i + 1 < argc) { out = argv[++i]; return true; }
+            std::cerr << "error: option '" << arg << "' expects a value\n";
+            return false;
+        };
+        if (arg == "--svg-path" || arg == "--input") { std::string v; if (!next(v)) return false; opt.svgPath = v; }
+        else if (arg == "--svg-string") { std::string v; if (!next(v)) return false; opt.svgString = v; }
+        else if (arg == "--save-path" || arg == "--output" || arg == "-o") { std::string v; if (!next(v)) return false; opt.savePath = v; }
+        else if (arg == "-w" || arg == "--width") { std::string v; if (!next(v)) return false; opt.width = std::atoi(v.c_str()); }
+        else if (arg == "-h" || arg == "--height") { std::string v; if (!next(v)) return false; opt.height = std::atoi(v.c_str()); }
+        else if (arg == "-S" || arg == "--supersample") { std::string v; if (!next(v)) return false; opt.supersample = std::atoi(v.c_str()); }
+        else if (arg == "--background") { std::string v; if (!next(v)) return false; opt.background = v; }
+        else if (arg == "--transparent") { opt.transparent = true; }
+        else if (arg == "--help" || arg == "-?") { printUsage(); return true; }
+        else { std::cerr << "error: unknown option '" << arg << "'\n"; return false; }
+    }
+    return true;
+}
+
+// Parse the options that follow a `texture` subcommand.  `--png-path` is
+// repeatable so several textures can be packed in one invocation.
+bool parseTextureArgs(int argc, char** argv, TextureOptions& opt) {
+    for (int i = 0; i < argc; ++i) {
+        std::string arg = argv[i];
+        auto next = [&](std::string& out) -> bool {
+            if (i + 1 < argc) { out = argv[++i]; return true; }
+            std::cerr << "error: option '" << arg << "' expects a value\n";
+            return false;
+        };
+        if (arg == "--output-path") { std::string v; if (!next(v)) return false; opt.outputPath = v; }
+        else if (arg == "--png-path") { std::string v; if (!next(v)) return false; opt.pngPaths.push_back(v); }
+        else if (arg == "--atlas-path") { std::string v; if (!next(v)) return false; opt.atlasPath = v; }
+        else if (arg == "--shelf-width") { std::string v; if (!next(v)) return false; opt.shelfWidth = std::atoi(v.c_str()); }
+        else if (arg == "--padding") { std::string v; if (!next(v)) return false; opt.padding = std::max(0, std::atoi(v.c_str())); }
+        else if (arg == "--help" || arg == "-?") { printUsage(); return true; }
+        else { std::cerr << "error: unknown option '" << arg << "' for texture mode\n"; return false; }
+    }
+    return true;
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) { printUsage(); return 1; }
+    const std::string mode = argv[1];
+    const bool hasModeKeyword = (mode == "png" || mode == "texture" || mode == "help" ||
+        mode == "--help" || mode == "version" || mode == "--version");
+    const int start = hasModeKeyword ? 2 : 1;
+
+    // Global queries first, before the mode keyword is otherwise interpreted
+    // (otherwise a bare-option fallback such as "--version" would look like a
+    // png option).
+    if (mode == "version" || mode == "--version") {
+        std::cout << "svg2png 1.1 (CImg " << cimg_version << " / lodepng " << LODEPNG_VERSION_STRING << ")\n";
+        return 0;
+    }
+    if (mode == "help" || mode == "--help") {
+        printUsage(); return 0;
+    }
+
+    if (mode == "texture") {
+        TextureOptions opt;
+        if (!parseTextureArgs(argc - start, argv + start, opt)) return 1;
+        try { return runTexture(opt); }
+        catch (const std::exception& e) { std::cerr << "error: " << e.what() << "\n"; return 1; }
+    } else if (mode == "png" || (mode[0] == '-')) {
+        // Bare options with no subcommand are treated as the default "png" mode.
+        Options opt;
+        if (!parsePngArgs(argc - start, argv + start, opt)) return 1;
+        try { return run(opt); }
+        catch (const std::exception& e) { std::cerr << "error: " << e.what() << "\n"; return 1; }
+    }
+
+    std::cerr << "error: unknown mode '" << mode << "' (expected 'png' or 'texture')\n";
+    printUsage();
+    return 1;
 }
