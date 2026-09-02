@@ -46,6 +46,17 @@ set(SFML_BUILD_AUDIO OFF CACHE BOOL "Build the SFML audio component" FORCE)
 add_subdirectory(dependencies/sfml EXCLUDE_FROM_ALL)
 
 # ---------------------------------------------------------------------------
+# Tools
+#
+# Developer tools (currently: svg2png) are built only when -DBUILD_TOOLS=ON.
+# They rely on the CImg and lodepng submodules under dependencies/.
+# ---------------------------------------------------------------------------
+option(BUILD_TOOLS "Build developer tools (svg2png)" ON)
+if(BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
+
+# ---------------------------------------------------------------------------
 # Game targets
 # ---------------------------------------------------------------------------
 add_subdirectory(src)

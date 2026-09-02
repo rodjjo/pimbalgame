@@ -1,3 +1,9 @@
 [submodule "dependencies/sfml"]
 	path = dependencies/sfml
 	url = https://github.com/SFML/SFML.git
+[submodule "dependencies/lodepng"]
+	path = dependencies/lodepng
+	url = https://github.com/lvandeve/lodepng.git
+[submodule "dependencies/CImg"]
+	path = dependencies/CImg
+	url = https://github.com/GreycLab/CImg.git
