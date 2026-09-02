@@ -86,16 +86,86 @@ pimbalgame/
 
 ## Prerequisites
 
-- A C++17 capable compiler (GCC 7+, Clang 5+, or MSVC 2017+).
-- CMake >= 3.16.
-- SFML system dependencies for the platform (only the **Graphics**, **Window**
-  and **System** components are built; the Network and Audio components are
-  disabled, so Libssh2 / Vorbis / gsm are not required):
-  - **Linux:** `build-essential cmake git`, plus the development packages for the
-    SFML system dependencies (see the
-    [SFML Linux build guide](https://www.sfml-dev.org/tutorials/2.6/start_linux.php)).
-  - **Windows:** MSVC 2017+ plus the SFML system dependencies (OpenGL, Win32).
-  - **macOS:** Homebrew + `brew install sfml`.
+The game itself needs only a C++17 compiler, CMake and Git. SFML is built
+**in-tree** from the git submodule, so you do **not** need a system-wide SFML
+installation or a `find_package(SFML)` step. What you *do* need are the low-level
+**operating-system libraries** that SFML's `Window` and `Graphics` components link
+against. On Linux these come as system packages; on macOS, Windows and Android
+SFML fetches the text libraries (Freetype / HarfBuzz) itself and relies on the
+platform's OpenGL / Cocoa / Win32 support.
+
+> **CMake version:** the top-level `CMakeLists.txt` requires CMake 3.16, but the
+> in-tree SFML submodule (3.1.0) requires **3.28**. CMake takes the higher of the
+> two, so in practice **CMake >= 3.28** is needed.
+
+| Requirement      | Minimum / note                                              |
+| ---------------- | ----------------------------------------------------------- |
+| C++ compiler     | GCC 7+, Clang 5+, or MSVC 2017+ (C++17)                     |
+| CMake            | >= 3.28 (enforced by the SFML submodule)                    |
+| Git              | for cloning and `git submodule update`                      |
+| OpenGL           | system OpenGL implementation (Linux: Mesa / GLVND)          |
+| Window system    | X11 (Linux) / Win32 (Windows) / Cocoa (macOS)               |
+
+The project only builds SFML's **System**, **Window** and **Graphics**
+components, so the Network and Audio extras (Libssh2, Vorbis, gsm) are **not**
+required.
+
+### Linux (Debian / Ubuntu) — verified build
+
+On Linux SFML uses the **system** text libraries by default, so Freetype and
+HarfBuzz are required too. Everything below is the exact set that configures and
+builds the project cleanly on a fresh machine:
+
+```bash
+# Build tools
+sudo apt install build-essential cmake git
+
+# SFML Window (X11 backend) — Xrandr, Xcursor and Xi are the only X11
+# components SFML 3.1.0 links against; keyboard handling uses XKBlib from libx11-dev
+sudo apt install libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
+                 libgl-dev libudev-dev
+
+# SFML Graphics text rendering (system Freetype + HarfBuzz)
+sudo apt install libfreetype6-dev libharfbuzz-dev
+```
+
+> Older SFML 2.6 guides also list `libxinerama-dev` and `libxkbcommon-dev`;
+> SFML 3.1.0 does **not** link those here, so they are unnecessary.
+
+Same libraries on other distributions (package *names* differ, the libraries are
+the same):
+
+```bash
+# Fedora / RHEL (-devel suffix, Mesa as mesa-libGL-devel)
+sudo dnf install gcc-c++ cmake git \
+    libX11-devel libXi-devel libXrandr-devel libXcursor-devel \
+    mesa-libGL-devel libudev-devel freetype-devel harfbuzz-devel
+
+# Arch Linux (runtime + headers merged; base-devel supplies the compiler)
+sudo pacman -S base-devel cmake git \
+    libx11 libxi libxrandr libxcursor mesa libudev freetype harfbuzz
+```
+
+> **Optional:** to avoid installing Freetype / HarfBuzz (and instead let SFML
+> download and build them from source via CMake `FetchContent`), configure with
+> `-DSFML_USE_SYSTEM_DEPS=OFF`. This needs network access at configure time.
+
+### macOS
+
+Only a compiler, CMake and Git are needed — SFML fetches Freetype / HarfBuzz
+itself and uses the platform's OpenGL/Cocoa stack (no X11, no extra system
+packages). The simplest path is still Homebrew:
+
+```bash
+brew install cmake git          # or: brew install sfml  (prebuilt SFML)
+```
+
+### Windows
+
+Install [Visual Studio 2022](https://visualstudio.microsoft.com/) (the **C++
+desktop development** workload, which provides MSVC) plus CMake and Git. SFML
+fetches the text libraries itself and uses the system OpenGL driver — no extra
+system packages are required.
 
 ## Getting started
 
