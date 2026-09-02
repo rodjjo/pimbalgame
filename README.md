@@ -8,6 +8,8 @@ scoring, three balls per game and a game-over screen.
 The game builds SFML in-tree from a git submodule, so no system-wide SFML
 installation or `find_package` step is required.
 
+![PimBalGame screenshot](docs/screen.png)
+
 ## How this game was made
 
 PimBalGame was designed and implemented end-to-end by an AI coding agent,
