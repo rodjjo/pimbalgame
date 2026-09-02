@@ -143,4 +143,4 @@ is copied next to the executable by the build so it can be located at runtime.
 
 ## License
 
-TBD
+This project is licensed under the [MIT License](LICENSE).
