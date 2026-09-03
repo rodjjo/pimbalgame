@@ -23,6 +23,14 @@ target_link_libraries(pimbalgame PRIVATE
     SFML::Graphics
 )
 
+# Box2D is built in-tree from the submodule (see the root CMakeLists.txt), which
+# exposes the namespaced alias target box2d::box2d. It is linked here now so the
+# game can use it once the physics code is ported over; a static library that no
+# code references contributes nothing to the link.
+target_link_libraries(pimbalgame PRIVATE
+    box2d::box2d
+)
+
 # Keep the console window on Windows when launched from an IDE/Explorer.
 if(WIN32)
     set_target_properties(pimbalgame PROPERTIES WIN32_EXECUTABLE FALSE)

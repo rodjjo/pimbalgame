@@ -46,6 +46,27 @@ set(SFML_BUILD_AUDIO OFF CACHE BOOL "Build the SFML audio component" FORCE)
 add_subdirectory(dependencies/sfml EXCLUDE_FROM_ALL)
 
 # ---------------------------------------------------------------------------
+# Box2D dependency (git submodule at dependencies/box2d, pinned to tag v3.1.1)
+# ---------------------------------------------------------------------------
+# A 2D physics engine used by the game's physics simulation. The submodule is
+# expected to be present. If the source directory does not exist the submodule
+# has not been checked out yet:
+#
+#     git submodule update --init --recursive
+#
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/box2d/CMakeLists.txt")
+    message(FATAL_ERROR
+        "Box2D submodule is not checked out at 'dependencies/box2d'.\n"
+        "Run: git submodule update --init --recursive")
+endif()
+
+# Box2D's top-level CMakeLists only exposes the `box2d` library when it is not
+# the top-level project, so the samples, unit tests, benchmarks, docs and the
+# enkiTS task system it would otherwise FetchContent are skipped. This makes the
+# build self-contained with no network access at configure time.
+add_subdirectory(dependencies/box2d EXCLUDE_FROM_ALL)
+
+# ---------------------------------------------------------------------------
 # Tools
 #
 # Developer tools (currently: svg2png) are built only when -DBUILD_TOOLS=ON.

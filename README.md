@@ -70,6 +70,7 @@ transformer inference engine for sparse models.
 pimbalgame/
 ├── CMakeLists.txt          # Top-level build configuration
 ├── dependencies/
+│   ├── box2d/              # Box2D physics engine (git submodule, pinned v3.1.1)
 │   └── sfml/               # SFML library (git submodule, built in-tree)
 ├── src/
 │   ├── CMakeLists.txt      # Builds the game executable
