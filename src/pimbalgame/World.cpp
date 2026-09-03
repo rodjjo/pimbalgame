@@ -1,5 +1,7 @@
 #include "pimbalgame/World.hpp"
 #include "pimbalgame/Physics.hpp"
+#include "box2d/box2d.h"
+#include "box2d/math_functions.h"
 #include <algorithm>
 #include <cmath>
 #include <optional>
@@ -10,6 +12,19 @@ namespace
 {
     constexpr float kPi = 3.14159265358979323846f;
     constexpr float kDegToRad = kPi / 180.0f;
+
+    // Scale between the game's pixel space and Box2D's meter space. Box2D is
+    // tuned for objects roughly 0.1..10 m moving at a few tens of m/s; mapping
+    // the ~640x920 px table onto ~6.4x9.2 m keeps the ball, flippers and
+    // bumpers in that comfortable range and makes the solver stable.
+    constexpr float kPpm = 100.0f;
+
+    // The pinball's top speed (px/s), mirrored into the world's velocity cap.
+    constexpr float kBallMaxSpeed = 1500.f;
+
+    // Marker stored as the ball's Box2D user data so contact events can tell the
+    // ball apart from bumpers (whose user data is the Bumper* itself).
+    static const int kBallTag = 0;
 
     // ---- Table geometry (absolute pixels, designed for a 640x920 window) ----
     constexpr float kLeft = 50.f;
@@ -22,6 +37,8 @@ namespace
     constexpr sf::Vector2f kLeftPivot(200.f, 820.f);
     constexpr sf::Vector2f kRightPivot(440.f, 820.f);
     constexpr float kFlipperLength = 110.f;
+    // Thickness of the flipper collision box (matches the flipper sprite).
+    constexpr float kFlipperThickness = 26.f;
     constexpr float kLeftRest = -15.0f * kDegToRad;
     constexpr float kLeftActive = -78.0f * kDegToRad;
     constexpr float kRightRest = 195.0f * kDegToRad;
@@ -34,12 +51,15 @@ namespace
     constexpr float kPlungerUpSpeed = 1000.f;  // px/s after release
     constexpr float kLaunchBase = 600.f;       // px/s
     constexpr float kLaunchExtra = 1400.f;     // px/s at full charge
+    constexpr float kPlungerHalfW = 22.f;      // half width of the launch pad
+    constexpr float kPlungerHalfH = 10.f;      // half thickness of the launch pad
 
     constexpr float kGravity = 1250.f;         // px/s^2
     constexpr float kFloorY = 885.f;           // ball drains below this
     // Minimum launch speed (px/s) imparted to the ball while it rests on an
     // active flipper, so it can never settle into the valley formed by the
-    // flipper and the adjacent wall.
+    // flipper and the adjacent wall (the pivot corner, where the flipper's linear velocity is ~0, so
+    // swinging it would impart nothing).
     constexpr float kMinLaunchSpeed = 300.f;
     constexpr float kBallSpawnX = 565.f;
     constexpr float kBallSpawnY = 340.f;
@@ -47,6 +67,11 @@ namespace
     constexpr float kWallTexW = 72.f;
     constexpr float kWallTexH = 16.f;
     constexpr float kWallThickness = 8.f;      // visual rail thickness (px)
+
+    // --- pixel <-> meter helpers ---
+    inline b2Vec2 toM(sf::Vector2f p) { return b2Vec2{ p.x / kPpm, p.y / kPpm }; }
+    inline b2Vec2 toM(float x, float y) { return b2Vec2{ x / kPpm, y / kPpm }; }
+    inline sf::Vector2f toPx(b2Vec2 p) { return sf::Vector2f(p.x * kPpm, p.y * kPpm); }
 
     // A textured wall rail: origin at the left endpoint, scaled to the segment.
     void drawWall(sf::RenderWindow& window, const sf::Vector2f& a,
@@ -87,7 +112,16 @@ namespace
 
 World::World(int /*windowWidth*/, int /*windowHeight*/)
 {
+    // The physics world: downward gravity (same +y axis as the screen),
+    // continuous collision so the fast ball never tunnels, and a speed cap.
+    b2WorldDef worldDef = b2DefaultWorldDef();
+    worldDef.gravity = b2Vec2{ 0.f, kGravity / kPpm };
+    worldDef.enableContinuous = true;
+    worldDef.maximumLinearSpeed = kBallMaxSpeed / kPpm;
+    mWorld = b2CreateWorld(&worldDef);
+
     buildTable();
+
     mPlungerY = kPlungerRestY;
 
     // Decode the embedded atlas and wire the ball glow to it.
@@ -150,6 +184,7 @@ void World::update(float dt)
         return;
     }
 
+    // Advance the flippers (this updates each flipper's angle / angular velocity).
     for (auto& f : mFlippers)
     {
         f->update(dt);
@@ -162,11 +197,39 @@ void World::update(float dt)
         mPlungerCooldown -= dt;
     }
 
-    mBall.integrate(dt, kGravity);
-    collideWalls();
-    collideBumpers();
-    collideFlippers();
-    collidePlunger();
+    // Drive the kinematic flippers so Box2D's solver transfers their swing
+    // momentum to the ball (replaces the old manual surface-velocity impulse).
+    for (auto& f : mFlippers)
+    {
+        b2Transform target;
+        target.p = toM(f->pivot());
+        target.q = b2MakeRot(f->angle());
+        b2Body_SetTargetTransform(f->bodyId, target, dt);
+    }
+
+    // Track the launch pad with the visual so the ball rests on the real surface.
+    {
+        b2Transform target;
+        target.p = toM(kChannelCenterX, mPlungerY + kPlungerHalfH);
+        target.q = b2MakeRot(0.f);
+        b2Body_SetTransform(mPlungerBody, target.p, target.q);
+    }
+
+    // Advance the simulation: Box2D integrates the ball and resolves every
+    // collision (walls, flippers, bumpers, plunger) for this sub-step batch.
+    b2World_Step(mWorld, dt, mSubSteps);
+
+    // Read the ball's state back from Box2D (meters -> pixels).
+    mBall.position = toPx(b2Body_GetPosition(mBallBody));
+    mBall.velocity = toPx(b2Body_GetLinearVelocity(mBallBody));
+
+    // Turn contact events into bumper kicks/scoring, then flipper effects.
+    processContacts();
+    applyFlipperEffects();
+
+    // Push any velocity changes (bumper kicks / anti-stick) back into the body.
+    b2Body_SetLinearVelocity(mBallBody, toM(mBall.velocity));
+
     checkDrain();
 
     for (auto& b : mBumpers)
@@ -220,6 +283,12 @@ void World::renderBackground(sf::RenderWindow& window) const
 // ---------------------------------------------------------------------------
 void World::buildTable()
 {
+    // Shared static body carrying every wall as a two-sided segment. One body
+    // keeps the broad-phase small; each segment keeps its own restitution.
+    b2BodyDef wallDef = b2DefaultBodyDef();
+    wallDef.type = b2_staticBody;
+    mWallBody = b2CreateBody(mWorld, &wallDef);
+
     // Rounded top via an arc.
     spawnArc(320.f, 362.5f, 292.5f, 202.6f, 337.4f, 20, 0.45f);
 
@@ -232,17 +301,83 @@ void World::buildTable()
     addWall(155.f, 800.f, kLeftPivot.x, kLeftPivot.y);
     addWall(470.f, 800.f, kRightPivot.x, kRightPivot.y);
 
-    // Flippers.
-    mFlippers.push_back(std::make_unique<Flipper>(
-        Flipper::Side::Left, kLeftPivot, kFlipperLength, kLeftRest, kLeftActive));
-    mFlippers.push_back(std::make_unique<Flipper>(
-        Flipper::Side::Right, kRightPivot, kFlipperLength, kRightRest, kRightActive));
+    // Flippers: kinematic bodies whose swing the solver transfers to the ball.
+    {
+        b2BodyDef fdef = b2DefaultBodyDef();
+        fdef.type = b2_kinematicBody;
+        fdef.fixedRotation = false;
 
-    // Bumpers.
+        b2ShapeDef sdef = b2DefaultShapeDef();
+        sdef.material.friction = 0.35f;
+        const float hw = kFlipperLength * 0.5f / kPpm;
+        const float hh = kFlipperThickness * 0.5f / kPpm;
+
+        auto makeFlipper = [&](Flipper::Side side, sf::Vector2f pivot,
+                               float restAngle, float activeAngle)
+        {
+            auto f = std::make_unique<Flipper>(side, pivot, kFlipperLength, restAngle, activeAngle);
+            fdef.position = toM(pivot);
+            fdef.rotation = b2MakeRot(f->angle());
+            b2BodyId body = b2CreateBody(mWorld, &fdef);
+
+            // Thin box from the pivot to the tip (local origin at the pivot).
+            b2Polygon box = b2MakeOffsetBox(hw, hh, b2Vec2{ hw, 0.f }, b2MakeRot(0.f));
+            b2ShapeId shape = b2CreatePolygonShape(body, &sdef, &box);
+            b2Shape_SetRestitution(shape, 0.2f);
+
+            f->bodyId = body;
+            mFlippers.push_back(std::move(f));
+        };
+
+        makeFlipper(Flipper::Side::Left, kLeftPivot, kLeftRest, kLeftActive);
+        makeFlipper(Flipper::Side::Right, kRightPivot, kRightRest, kRightActive);
+    }
+
+    // Bumpers: static discs. The ball contacts them and World::processContacts
+    // applies the radial kick + scoring (Box2D resolves the geometry).
     addBumper(sf::Vector2f(320.f, 300.f), 34.f, 100, 540.f);
     addBumper(sf::Vector2f(220.f, 430.f), 30.f, 100, 540.f);
     addBumper(sf::Vector2f(420.f, 430.f), 30.f, 100, 540.f);
     addBumper(sf::Vector2f(320.f, 500.f), 26.f, 150, 560.f);
+
+    // Plunger: static launch pad in the right channel, repositioned each frame.
+    {
+        b2BodyDef pdef = b2DefaultBodyDef();
+        pdef.type = b2_staticBody;
+        mPlungerBody = b2CreateBody(mWorld, &pdef);
+
+        b2ShapeDef pshapeDef = b2DefaultShapeDef();
+        pshapeDef.material.friction = 0.1f;
+        const float hw = kPlungerHalfW / kPpm;
+        const float hh = kPlungerHalfH / kPpm;
+        b2Polygon pad = b2MakeBox(hw, hh);
+        b2ShapeId shape = b2CreatePolygonShape(mPlungerBody, &pshapeDef, &pad);
+        b2Shape_SetRestitution(shape, 0.0f);
+    }
+
+    // The ball: a dynamic, bullet circle so it cannot tunnel through the
+    // swinging flippers. Restitution 0 means each surface's restitution
+    // (via the max-mix rule) governs the bounce, matching the old per-wall code.
+    {
+        b2BodyDef bdef = b2DefaultBodyDef();
+        bdef.type = b2_dynamicBody;
+        bdef.isBullet = true;
+        bdef.enableSleep = false;   // the ball must always stay responsive
+        bdef.position = toM(kBallSpawnX, kBallSpawnY);
+        bdef.linearVelocity = b2Vec2_zero;
+        mBallBody = b2CreateBody(mWorld, &bdef);
+        b2Body_SetUserData(mBallBody, (void*)&kBallTag);
+
+        b2ShapeDef bshapeDef = b2DefaultShapeDef();
+        bshapeDef.density = 1.0f;
+        bshapeDef.material.friction = 0.1f;
+        bshapeDef.material.restitution = 0.0f;
+        bshapeDef.enableContactEvents = true;   // emit ball<->anything contact events
+        b2Circle circle;
+        circle.center = b2Vec2_zero;
+        circle.radius = mBall.radius / kPpm;
+        b2CreateCircleShape(mBallBody, &bshapeDef, &circle);
+    }
 }
 
 void World::spawnArc(float cx, float cy, float r, float startDeg,
@@ -266,84 +401,90 @@ void World::spawnArc(float cx, float cy, float r, float startDeg,
 void World::addWall(float ax, float ay, float bx, float by, float restitution)
 {
     mWalls.push_back({sf::Vector2f(ax, ay), sf::Vector2f(bx, by), restitution});
+
+    // Recreate the wall's Box2D segment with the same restitution.
+    b2Segment seg;
+    seg.point1 = toM(ax, ay);
+    seg.point2 = toM(bx, by);
+    b2ShapeDef sdef = b2DefaultShapeDef();
+    sdef.material.friction = 0.1f;
+    b2ShapeId shape = b2CreateSegmentShape(mWallBody, &sdef, &seg);
+    b2Shape_SetRestitution(shape, restitution);
 }
 
 void World::addBumper(sf::Vector2f position, float radius, int score, float kickSpeed)
 {
-    mBumpers.push_back(std::make_unique<Bumper>(position, radius, score, kickSpeed));
+    auto bumper = std::make_unique<Bumper>(position, radius, score, kickSpeed);
+
+    b2BodyDef bdef = b2DefaultBodyDef();
+    bdef.type = b2_staticBody;
+    bdef.position = toM(position);
+    bumper->bodyId = b2CreateBody(mWorld, &bdef);
+    b2Body_SetUserData(bumper->bodyId, (void*)bumper.get());
+
+    b2ShapeDef sdef = b2DefaultShapeDef();
+    sdef.material.friction = 0.05f;
+    sdef.material.restitution = 0.0f;   // the kick (not restitution) launches the ball
+    b2Circle circle;
+    circle.center = b2Vec2_zero;
+    circle.radius = radius / kPpm;
+    b2ShapeId shape = b2CreateCircleShape(bumper->bodyId, &sdef, &circle);
+    (void)shape;
+
+    mBumpers.push_back(std::move(bumper));
 }
 
 // ---------------------------------------------------------------------------
 // Physics
 // ---------------------------------------------------------------------------
-void World::resolveSegment(const sf::Vector2f& a, const sf::Vector2f& b,
-                           float restitution,
-                           const std::optional<sf::Vector2f>& flipperVelocity)
+void World::processContacts()
 {
-    const sf::Vector2f closest = ClosestPointOnSegment(mBall.position, a, b);
-    const sf::Vector2f diff = mBall.position - closest;
-    const float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
-    const float overlap = mBall.radius - dist;
-    if (overlap <= 0.0f || dist < 1e-6f)
+    const b2ContactEvents events = b2World_GetContactEvents(mWorld);
+    for (int i = 0; i < events.beginCount; ++i)
     {
-        return;
-    }
+        const b2ContactBeginTouchEvent& e = events.beginEvents[i];
+        const b2BodyId bodyA = b2Shape_GetBody(e.shapeIdA);
+        const b2BodyId bodyB = b2Shape_GetBody(e.shapeIdB);
+        void* const ua = b2Body_GetUserData(bodyA);
+        void* const ub = b2Body_GetUserData(bodyB);
 
-    const sf::Vector2f n = diff / dist;
-
-    // Push the ball out of the surface.
-    mBall.position += n * overlap;
-
-    sf::Vector2f relative = mBall.velocity;
-    if (flipperVelocity)
-    {
-        relative = mBall.velocity - *flipperVelocity;
-    }
-
-    const float vn = relative.x * n.x + relative.y * n.y;
-    if (vn < 0.0f)
-    {
-        const float j = -(1.0f + restitution) * vn;
-        relative += n * j;
-    }
-
-    mBall.velocity = flipperVelocity ? (relative + *flipperVelocity) : relative;
-}
-
-void World::collideWalls()
-{
-    for (const auto& w : mWalls)
-    {
-        resolveSegment(w.a, w.b, w.restitution);
-    }
-}
-
-void World::collideBumpers()
-{
-    for (auto& b : mBumpers)
-    {
-        const sf::Vector2f diff = mBall.position - b->position();
-        const float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
-        const float minDist = mBall.radius + b->radius();
-        if (dist >= minDist || dist < 1e-6f)
+        // Only ball <-> bumper contacts carry a non-null, non-ball user data.
+        Bumper* bumper = nullptr;
+        if (ua == (void*)&kBallTag && ub != nullptr && ub != (void*)&kBallTag)
+        {
+            bumper = static_cast<Bumper*>(ub);
+        }
+        else if (ub == (void*)&kBallTag && ua != nullptr && ua != (void*)&kBallTag)
+        {
+            bumper = static_cast<Bumper*>(ua);
+        }
+        else
         {
             continue;
         }
 
-        const sf::Vector2f n = diff / dist;
-        // Move the ball out of the bumper.
-        mBall.position += n * (minDist - dist);
-
-        // Reflect while applying a fixed radial kick (keeps tangential energy).
-        const float vn = mBall.velocity.x * n.x + mBall.velocity.y * n.y;
-        const sf::Vector2f vnVec = n * vn;
-        const sf::Vector2f vt = mBall.velocity - vnVec;
-        mBall.velocity = n * b->kickSpeed() + vt * 0.85f;
-
-        if (!b->isFlashing())
+        // Both shapes are circles, so the contact normal is the line between centers.
+        const sf::Vector2f diff = mBall.position - bumper->position();
+        const float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+        if (dist < 1e-6f)
         {
-            b->hit();
-            mScore += b->score();
+            continue;
+        }
+        const sf::Vector2f n = diff / dist;
+
+        // Radial kick once per impact, gated by the bumper's flash cooldown
+        // (this also prevents double-scoring). Box2D has already resolved the
+        // geometry, so the ball sits on the surface and the kick launches it off.
+        if (!bumper->isFlashing())
+        {
+            const float vn = mBall.velocity.x * n.x + mBall.velocity.y * n.y;
+            const sf::Vector2f vnVec = n * vn;
+            const sf::Vector2f vt = mBall.velocity - vnVec;
+            mBall.velocity = n * bumper->kickSpeed() + vt * 0.85f;
+
+            bumper->hit();
+            mScore += bumper->score();
+
             // Burst of sparks off the point where the ball meets the bumper.
             const sf::Vector2f contact = mBall.position - n * mBall.radius;
             mParticles.emitBurst(contact, 15, sf::Color(205, 255, 255),
@@ -352,12 +493,11 @@ void World::collideBumpers()
     }
 }
 
-void World::collideFlippers()
+void World::applyFlipperEffects()
 {
     for (auto& f : mFlippers)
     {
         const sf::Vector2f closest = ClosestPointOnSegment(mBall.position, f->bodyA(), f->bodyB());
-        resolveSegment(f->bodyA(), f->bodyB(), 0.55f, f->surfaceVelocity(closest));
 
         // Sparks when the ball slams into an active flipper at speed.
         const float speed = std::sqrt(mBall.velocity.x * mBall.velocity.x +
@@ -389,31 +529,6 @@ void World::collideFlippers()
     }
 }
 
-void World::collidePlunger()
-{
-    if (mPlungerCooldown > 0.0f)
-    {
-        return;
-    }
-
-    const float bx = mBall.position.x;
-    if (bx <= kChannelLeft + 6.f || bx >= kChannelRight - 6.f)
-    {
-        return;
-    }
-
-    const float top = mPlungerY;
-    if (mBall.position.y + mBall.radius > top)
-    {
-        const float penetration = mBall.position.y + mBall.radius - top;
-        mBall.position.y -= penetration;
-        if (mBall.velocity.y > 0.0f)
-        {
-            mBall.velocity.y = 0.0f; // rest on the pad
-        }
-    }
-}
-
 void World::updatePlunger(float dt)
 {
     if (mPlungerHeld)
@@ -435,6 +550,8 @@ void World::updatePlunger(float dt)
             // Kick up sparks from the channel on launch.
             mParticles.emitBurst(mBall.position, 10, sf::Color(255, 165, 85),
                                  sf::Color(255, 95, 45), 80.f, 260.f, 0.45f, 2.f, 4.f);
+            // Apply the launch immediately so it is integrated this step.
+            b2Body_SetLinearVelocity(mBallBody, toM(mBall.velocity));
         }
         mCharge = 0.0f;
         if (mPlungerY > kPlungerRestY)
@@ -468,8 +585,11 @@ void World::resetBall()
 {
     mBall.position = sf::Vector2f(kBallSpawnX, kBallSpawnY);
     mBall.velocity = sf::Vector2f(0.f, 0.f);
-    mPlungerY = kPlungerRestY;
-    mCharge = 0.0f;
+
+    // Move the Box2D body to the spawn point and stop it.
+    b2Body_SetTransform(mBallBody, toM(kBallSpawnX, kBallSpawnY), b2MakeRot(0.f));
+    b2Body_SetLinearVelocity(mBallBody, b2Vec2_zero);
+    b2Body_SetAwake(mBallBody, true);
 }
 
 } // namespace pimbalgame

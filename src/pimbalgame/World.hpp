@@ -1,6 +1,9 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+
+#include "box2d/box2d.h"
+
 #include <memory>
 #include <optional>
 #include <vector>
@@ -49,22 +52,33 @@ private:
     void spawnArc(float cx, float cy, float r, float startDeg, float endDeg, int segments, float restitution = 0.5f);
     void addWall(float ax, float ay, float bx, float by, float restitution = 0.5f);
     void addBumper(sf::Vector2f position, float radius, int score, float kickSpeed);
-    void collideWalls();
-    void collideBumpers();
-    void collideFlippers();
-    void collidePlunger();
     void checkDrain();
     void renderBackground(sf::RenderWindow& window) const;
 
     void updatePlunger(float dt);
-    void resolveSegment(const sf::Vector2f& a, const sf::Vector2f& b,
-                        float restitution,
-                        const std::optional<sf::Vector2f>& flipperVelocity = std::nullopt);
+
+    // Reads the contact events emitted by the last Box2D step and turns bumper
+    // contacts into radial kicks, scoring, flashes and spark bursts.
+    void processContacts();
+    // Flipper game-logic effects applied after the physics step: impact sparks
+    // and the anti-stick nudge that keeps the ball off a held flipper.
+    void applyFlipperEffects();
 
     Ball mBall;
     std::vector<Wall> mWalls;
     std::vector<std::unique_ptr<Flipper>> mFlippers;
     std::vector<std::unique_ptr<Bumper>> mBumpers;
+
+    // Box2D simulation. Geometry (walls, flippers, bumpers, plunger) is expressed
+    // in meters; the game logic and rendering stay in pixels. See kPpm.
+    b2WorldId mWorld = b2_nullWorldId;
+    b2BodyId mBallBody = b2_nullBodyId;       // dynamic circle (the pinball)
+    b2BodyId mWallBody = b2_nullBodyId;       // static shared body for all walls
+    b2BodyId mPlungerBody = b2_nullBodyId;    // kinematic launch pad
+
+    // Sub-steps per physics tick. More sub-steps => more stable resolution and
+    // less tunneling without changing the fixed outer timestep.
+    int mSubSteps = 4;
 
     // Generated art: the embeddable texture atlas (owns the atlas sf::Texture)
     // and the ball's particle effects (glow + sparks).

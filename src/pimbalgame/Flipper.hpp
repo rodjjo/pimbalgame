@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include "box2d/box2d.h"
+
 namespace pimbalgame
 {
 class Textures;
@@ -27,6 +29,10 @@ public:
     float angularVelocity() const { return mAngularVelocity; }
     const sf::Vector2f& bodyA() const { return mPivot; }
     const sf::Vector2f& bodyB() const { return mTip; }
+
+    // Box2D body driving the flipper's swing (kinematic). Updated each physics
+    // step so the solver transfers the flipper's momentum to the ball.
+    b2BodyId bodyId = b2_nullBodyId;
 
     // Linear velocity of the flipper surface at `contact`.
     sf::Vector2f surfaceVelocity(const sf::Vector2f& contact) const;

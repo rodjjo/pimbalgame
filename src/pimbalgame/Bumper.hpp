@@ -2,6 +2,8 @@
 
 #include <SFML/Graphics.hpp>
 
+#include "box2d/box2d.h"
+
 namespace pimbalgame
 {
 class Textures;
@@ -24,6 +26,10 @@ public:
     bool isFlashing() const { return mFlashTimer > 0.0f; }
 
     sf::CircleShape shape;
+
+    // Box2D static body carrying the bumper's collision circle. The ball
+    // contacts it and the World applies the radial kick on contact events.
+    b2BodyId bodyId = b2_nullBodyId;
 
 private:
     void recompute();

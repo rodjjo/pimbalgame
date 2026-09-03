@@ -1,13 +1,14 @@
 # PimBalGame
 
 A pinball game written in C++17 using the [SFML](https://www.sfml-dev.org/)
-library, plus a small set of developer tools for building its art assets. The
-game itself ships a complete, self-contained implementation: a custom 2D
-physics loop, two flippers, four bumpers, a chargeable plunger launcher,
-scoring, three balls per game and a game-over screen.
+library for graphics, plus a small set of developer tools for building its art
+assets. The game itself ships a complete, self-contained implementation on top
+of the [Box2D](https://github.com/Box2D/Box2D) 2D physics engine: two flippers,
+four bumpers, a chargeable plunger launcher, scoring, three balls per game and a
+game-over screen.
 
-The game builds SFML in-tree from a git submodule, so no system-wide SFML
-installation or `find_package` step is required. It also ships
+The game builds SFML and Box2D in-tree from git submodules, so no system-wide
+SFML / Box2D installation or `find_package` step is required. It also ships
 `tools/svg2png`, a tool that rasterizes SVG art to PNG and packs several PNGs
 into a single embeddable C++ texture atlas — see
 [tools/svg2png.md](tools/svg2png.md) for its full documentation.
@@ -34,13 +35,18 @@ transformer inference engine for sparse models.
 
 ## Features
 
-- **Fixed-timestep physics loop.** The simulation runs at a constant
+- **Fixed-timestep physics loop.** Box2D is advanced at a constant
   `1/120 s` sub-step, decoupled from the render rate (capped at 60 FPS), so the
   behaviour is deterministic and stable regardless of frame timing. Large frames
   (e.g. after losing window focus) are clamped to avoid the "spiral of death".
-- **Segment-based collision.** The playfield is made of straight wall segments;
-  the ball (a circle) resolves against each segment using closest-point projection
-  plus impulse-based reflection with per-wall restitution.
+  Pixels are mapped to Box2D's metre space (100 px/m) so the ball, flippers and
+  bumpers sit in the engine's comfortable range, and the fast ball is flagged as
+  a bullet with continuous collision so it never tunnels.
+- **Collision.** Box2D owns all collision: walls are two-sided segments, the
+  flippers are thin kinematic boxes, the bumpers are static discs, the plunger is
+  a box and the ball is a dynamic circle. The solver resolves every contact with
+  per-shape restitution, and contact events drive the game logic (bumper kicks,
+  scoring and sparks).
 - **Flippers.** Two rotating flippers pivot around fixed points and swing between
   a resting and an active angle. Their angular velocity is transferred to the ball
   on contact, and an anti-stick guard prevents the ball from settling in the
@@ -234,6 +240,22 @@ the release notes.
 | 1.0     | 2026-09-02 | Initial release: a simple pinball game.                                                     |
 | 1.1     | 2026-09-02 | Added `tools/svg2png`, a developer tool for turning the game's SVG art into PNG textures.   |
 | 1.2     | 2026-09-03 | Embedded texture atlas fed by `svg2png`, plus a particle system for the ball's visual flair.|
+| 2.0     | 2026-09-03 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1).               |
+
+### v2.0 (2026-09-03)
+
+- **Box2D physics engine.** The hand-rolled physics loop (custom closest-point
+  segment collision, manual impulse reflections and separate ball integration)
+  was replaced by the [Box2D](https://github.com/Box2D/Box2D) engine, added as a
+  git submodule pinned to v3.1.1. Box2D now owns all collision and contact
+  resolution. Game logic and rendering stay in pixels; a `100 px/m` scale maps
+  them into Box2D's metre space, the ball is a fast "bullet" circle with
+  continuous collision, and the flippers are kinematic bodies so their swing
+  transfers momentum to the ball through the solver.
+- **Rebuilt contact handling.** Bumper kicks and scoring now fire from Box2D's
+  contact events instead of a manual ball-vs-bumper pass, and the flipper and
+  plunger effects run after each physics sub-step. The fixed `1/120 s`
+  timestep and 60 FPS render cap are unchanged.
 
 ### v1.2 (2026-09-03)
 
