@@ -86,8 +86,10 @@ pimbalgame/
 │       ├── World.hpp/.cpp  # Playfield geometry, physics, scoring, plunger
 │       ├── Physics.hpp     # Shared geometry helper (closest point on a segment)
 │       ├── Ball.hpp/.cpp   # The ball: state, gravity integration, speed clamp
-│       ├── Flipper.hpp/.cpp# Rotating flipper with angular momentum transfer
-│       └── Bumper.hpp/.cpp # Circular scoring bumper with flash effect
+│       ├── Flipper.hpp/.cpp # Rotating flipper with angular momentum transfer
+│       ├── Bumper.hpp/.cpp # Circular scoring bumper with flash effect
+│       ├── Particles.hpp/.cpp # Ball glow, trail and burst sparks
+│       └── Textures.hpp/.cpp  # Embedded texture-atlas decoder
 ├── assets/
 │   └── fonts/
 │       └── DejaVuSans.ttf  # Bundled HUD font (copied next to the executable)
@@ -243,6 +245,7 @@ the release notes.
 | 2.0     | 2026-09-03 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1).               |
 | 2.1     | 2026-09-03 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad.        |
 | 2.2     | 2026-09-03 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
+| 2.3     | 2026-09-03 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
 
 ### v2.0 (2026-09-03)
 
@@ -279,6 +282,21 @@ the release notes.
   the right rail and keeps the lane straight onto the pad, so the ball rests on
   the plunger and can be launched instead of being lost. Existing walls are
   unchanged; this only adds one segment.
+
+### v2.3 (2026-09-03)
+
+- **Anti-stick guard fixed.** A ball sliding down the guide wall and slowing
+  near a held flipper used to settle *permanently* in the valley between the
+  flipper and the adjacent wall (the pivot corner), never moving again. The
+  guard that was supposed to prevent this was dead code: it decided the ball was
+  "in contact" when its centre was within one ball radius of the flipper's
+  pivot->tip **centre-line**, but the collision box is centred on that line and
+  the ball rests against its **surface**, a half flipper-thickness (~13px)
+  beyond it. On contact the ball's centre is therefore ~22px from the line, so
+  the `dist < radius` test was never true and the guard never fired. The check
+  now engages at `radius + half-thickness (+ slack)`, so the guard pushes the
+  ball off the surface as soon as it settles, exactly as intended. The flipper
+  pivots were also restored to (200, 825) / (440, 825).
 
 ### v1.2 (2026-09-03)
 

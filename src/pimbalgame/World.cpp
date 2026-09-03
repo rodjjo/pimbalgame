@@ -34,14 +34,24 @@ namespace
     constexpr float kTop = 250.f;
 
     // Flipper pivots and angles (radians).
-    constexpr sf::Vector2f kLeftPivot(200.f, 820.f);
-    constexpr sf::Vector2f kRightPivot(440.f, 820.f);
+    constexpr sf::Vector2f kLeftPivot(200.f, 825.f);
+    constexpr sf::Vector2f kRightPivot(440.f, 825.f);
     constexpr float kFlipperLength = 110.f;
     // Thickness of the flipper collision box (matches the flipper sprite).
     constexpr float kFlipperThickness = 26.f;
-    constexpr float kLeftRest = -15.0f * kDegToRad;
+
+    // Anti-stick guard reach, measured from the flipper's pivot->tip centre-line.
+    // The collision box is centred on that line, so the ball (radius
+    // mBall.radius) actually rests against the box SURFACE when its centre is
+    // mBall.radius + kFlipperThickness/2 beyond the line. The guard engages at
+    // that surface distance (+ a little slack). The old `dist < mBall.radius`
+    // test measured to the centre-line but compared against the ball radius,
+    // i.e. it only matched inside the flipper body, so it never fired on contact
+    // and the ball could settle forever in the pivot/wall valley.
+    constexpr float kPivotPocketSlack = 8.0f;
+    constexpr float kLeftRest = 25.0f * kDegToRad;
     constexpr float kLeftActive = -78.0f * kDegToRad;
-    constexpr float kRightRest = 195.0f * kDegToRad;
+    constexpr float kRightRest = 155.0f * kDegToRad;
     constexpr float kRightActive = 258.0f * kDegToRad;
 
     // Plunger (right-channel launcher).
@@ -520,9 +530,17 @@ void World::applyFlipperEffects()
         // the ball moving away from the surface at a minimum speed. This only
         // applies on genuine contact, so a flipper swinging nearby without
         // touching the ball never pushes it "from a distance".
+        //
+        // "Genuine contact" is dist < radius + half-thickness (+slack): the
+        // collision box is centred on the pivot->tip line, so the ball's surface
+        // sits a half flipper-thickness beyond it. Engaging at that surface
+        // distance (not the bare ball radius, which lies inside the body) is
+        // what makes the guard actually fire instead of never matching.
         const sf::Vector2f diff = mBall.position - closest;
         const float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
-        if (f->isActive() && dist < mBall.radius && dist >= 1e-6f)
+        if (f->isActive() &&
+            dist < mBall.radius + kFlipperThickness * 0.5f + kPivotPocketSlack &&
+            dist >= 1e-6f)
         {
             const sf::Vector2f n = diff / dist;
             const float vn = mBall.velocity.x * n.x + mBall.velocity.y * n.y;
