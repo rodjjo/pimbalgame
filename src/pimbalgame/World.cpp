@@ -297,6 +297,11 @@ void World::buildTable()
     addWall(kLeft, 760.f, 155.f, 800.f);
     addWall(kChannelLeft, 480.f, kChannelLeft, 700.f);
     addWall(kChannelLeft, 700.f, 470.f, 800.f);
+    // Vertical left wall of the plunger launch lane. The right side has the
+    // kRight rail, but below y=700 the left side was only the diagonal above,
+    // so a ball returning down the lane could slip left and drain. This keeps
+    // the lane sealed straight onto the pad so the ball rests on the plunger.
+    addWall(kChannelLeft, 700.f, kChannelLeft, 865.f);
     addWall(kRight, kTop, kRight, 860.f);
     addWall(155.f, 800.f, kLeftPivot.x, kLeftPivot.y);
     addWall(470.f, 800.f, kRightPivot.x, kRightPivot.y);

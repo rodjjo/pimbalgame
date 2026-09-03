@@ -242,6 +242,7 @@ the release notes.
 | 1.2     | 2026-09-03 | Embedded texture atlas fed by `svg2png`, plus a particle system for the ball's visual flair.|
 | 2.0     | 2026-09-03 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1).               |
 | 2.1     | 2026-09-03 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad.        |
+| 2.2     | 2026-09-03 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
 
 ### v2.0 (2026-09-03)
 
@@ -267,6 +268,17 @@ the release notes.
   when the ball is inside the right-channel lane and essentially resting on (or
   just above) the pad, so a real ball must be seated on the plunger to be
   launched — the same flaw existed in the pre-Box2D custom-physics loop.
+
+### v2.2 (2026-09-03)
+
+- **Plunger launch lane sealed on the left.** A vertical wall was added along
+  `kChannelLeft` (x=540) from y=700 down to just above the floor (y=865). The
+  right side of the launch lane already had the `kRight` rail, but below y=700
+  the left side was only the diagonal guide above, so a ball returning down the
+  lane could slip past the left of the plunger pad and drain. This wall mirrors
+  the right rail and keeps the lane straight onto the pad, so the ball rests on
+  the plunger and can be launched instead of being lost. Existing walls are
+  unchanged; this only adds one segment.
 
 ### v1.2 (2026-09-03)
 
