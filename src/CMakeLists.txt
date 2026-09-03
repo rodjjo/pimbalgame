@@ -14,6 +14,14 @@ add_executable(pimbalgame
 
 target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+# TinySoundFont is a single-header dependency (tsf.h + tml.h) with no build
+# system of its own; expose its root as an include path so the game can #include
+# it now and pull in the implementation later by defining TSF_IMPLEMENTATION /
+# TML_IMPLEMENTATION in one source file.
+target_include_directories(pimbalgame PRIVATE
+    "${CMAKE_SOURCE_DIR}/dependencies/tiny-sound-font"
+)
+
 # SFML is built in-tree from the submodule, which exposes the namespaced alias
 # targets SFML::System, SFML::Window and SFML::Graphics. No find_package /
 # install step is required.

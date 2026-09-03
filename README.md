@@ -77,6 +77,7 @@ pimbalgame/
 ├── CMakeLists.txt          # Top-level build configuration
 ├── dependencies/
 │   ├── box2d/              # Box2D physics engine (git submodule, pinned v3.1.1)
+│   ├── tiny-sound-font/    # TinySoundFont audio (git submodule, single-header tsf.h/tml.h)
 │   └── sfml/               # SFML library (git submodule, built in-tree)
 ├── src/
 │   ├── CMakeLists.txt      # Builds the game executable

@@ -10,3 +10,6 @@
 [submodule "dependencies/box2d"]
 	path = dependencies/box2d
 	url = https://github.com/erincatto/box2d.git
+[submodule "dependencies/tiny-sound-font"]
+	path = dependencies/tiny-sound-font
+	url = https://github.com/schellingb/TinySoundFont.git
