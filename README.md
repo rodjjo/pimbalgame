@@ -241,6 +241,7 @@ the release notes.
 | 1.1     | 2026-09-02 | Added `tools/svg2png`, a developer tool for turning the game's SVG art into PNG textures.   |
 | 1.2     | 2026-09-03 | Embedded texture atlas fed by `svg2png`, plus a particle system for the ball's visual flair.|
 | 2.0     | 2026-09-03 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1).               |
+| 2.1     | 2026-09-03 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad.        |
 
 ### v2.0 (2026-09-03)
 
@@ -256,6 +257,16 @@ the release notes.
   contact events instead of a manual ball-vs-bumper pass, and the flipper and
   plunger effects run after each physics sub-step. The fixed `1/120 s`
   timestep and 60 FPS render cap are unchanged.
+
+### v2.1 (2026-09-03)
+
+- **Plunger launch fix.** Releasing the plunger no longer flings the ball when it
+  is not on the launch pad. Previously the release impulse was applied to the
+  ball unconditionally, so holding and letting go of the plunger would push the
+  ball even when it was anywhere else on the table. The launch now only applies
+  when the ball is inside the right-channel lane and essentially resting on (or
+  just above) the pad, so a real ball must be seated on the plunger to be
+  launched — the same flaw existed in the pre-Box2D custom-physics loop.
 
 ### v1.2 (2026-09-03)
 

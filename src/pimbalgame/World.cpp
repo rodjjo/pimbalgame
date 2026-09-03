@@ -542,16 +542,29 @@ void World::updatePlunger(float dt)
     }
     else
     {
+        // Only launch when the ball is actually resting in the launch lane on
+        // the pad. Without this, releasing the plunger would fling the ball
+        // even when it is nowhere near the pad -- the pad would "push" the ball
+        // from a distance. The ball must sit inside the channel and essentially
+        // on (or just above) the pad surface to be launched.
         if (mPrevPlungerHeld && mCharge > 0.03f)
         {
-            const float speed = kLaunchBase + mCharge * kLaunchExtra;
-            mBall.velocity = sf::Vector2f(-150.f, -speed);
-            mPlungerCooldown = 0.1f;
-            // Kick up sparks from the channel on launch.
-            mParticles.emitBurst(mBall.position, 10, sf::Color(255, 165, 85),
-                                 sf::Color(255, 95, 45), 80.f, 260.f, 0.45f, 2.f, 4.f);
-            // Apply the launch immediately so it is integrated this step.
-            b2Body_SetLinearVelocity(mBallBody, toM(mBall.velocity));
+            const float gap = mPlungerY - (mBall.position.y + mBall.radius);  // >0: just above the pad
+            const bool onPad = mBall.position.x > kChannelLeft
+                               && mBall.position.x < kChannelRight
+                               && gap < mBall.radius + 2.f
+                               && gap > -(kPlungerHalfH + 2.f);
+            if (onPad)
+            {
+                const float speed = kLaunchBase + mCharge * kLaunchExtra;
+                mBall.velocity = sf::Vector2f(-150.f, -speed);
+                mPlungerCooldown = 0.1f;
+                // Kick up sparks from the channel on launch.
+                mParticles.emitBurst(mBall.position, 10, sf::Color(255, 165, 85),
+                                     sf::Color(255, 95, 45), 80.f, 260.f, 0.45f, 2.f, 4.f);
+                // Apply the launch immediately so it is integrated this step.
+                b2Body_SetLinearVelocity(mBallBody, toM(mBall.velocity));
+            }
         }
         mCharge = 0.0f;
         if (mPlungerY > kPlungerRestY)
