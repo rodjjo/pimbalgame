@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- steel pinball: base sphere -->
+  <circle cx="24" cy="24" r="22" fill="#cfd6ea" stroke="#7c87a6" stroke-width="1.6"/>
+  <!-- deep shadow, lower right -->
+  <ellipse cx="33" cy="34" rx="15" ry="12" fill="#4c5671" opacity="0.85"/>
+  <!-- mid tone band -->
+  <ellipse cx="30" cy="28" rx="13" ry="10" fill="#8b96b8" opacity="0.55"/>
+  <!-- broad soft highlight, upper left -->
+  <ellipse cx="16" cy="16" rx="14" ry="10" fill="#eef1fb" opacity="0.85"
+           transform="rotate(-32 16 16)"/>
+  <!-- bright specular sparkle -->
+  <ellipse cx="14" cy="14" rx="5" ry="3.5" fill="#ffffff" opacity="0.95"
+           transform="rotate(-32 14 14)"/>
+  <!-- thin bright rim bottom -->
+  <path d="M 8 34 A 22 22 0 0 0 40 34" fill="none" stroke="#ffffff" stroke-width="1.2"
+        opacity="0.35"/>
+</svg>

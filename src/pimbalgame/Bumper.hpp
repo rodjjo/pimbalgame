@@ -4,6 +4,8 @@
 
 namespace pimbalgame
 {
+class Textures;
+
 // A static, circular bumper. On contact with the ball it applies a fixed
 // radial kick and awards points. It briefly flashes when hit.
 class Bumper
@@ -13,7 +15,7 @@ public:
 
     void hit();   // register a ball contact (starts the flash/cooldown)
     void update(float dt);
-    void render(sf::RenderWindow& window) const;
+    void render(sf::RenderWindow& window, const Textures& tex) const;
 
     const sf::Vector2f& position() const { return mPosition; }
     float radius() const { return mRadius; }

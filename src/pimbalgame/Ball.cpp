@@ -1,4 +1,5 @@
 #include "pimbalgame/Ball.hpp"
+#include "pimbalgame/Textures.hpp"
 #include <cmath>
 
 namespace pimbalgame
@@ -26,6 +27,25 @@ void Ball::clampSpeed()
         const float scale = maxSpeed / std::sqrt(sq);
         velocity *= scale;
     }
+}
+
+void Ball::render(sf::RenderWindow& window, const Textures& tex) const
+{
+    if (!tex.loaded())
+    {
+        sf::CircleShape s = shape;
+        s.setPosition(position);
+        window.draw(s);
+        return;
+    }
+
+    sf::Sprite s = tex.get("ball");
+    s.setOrigin(sf::Vector2f(24.f, 24.f));
+    s.setPosition(position);
+    const float scale = (2.f * radius) / 48.f;
+    s.setScale(sf::Vector2f(scale, scale));
+    s.setColor(sf::Color(255, 255, 255));
+    window.draw(s);
 }
 
 } // namespace pimbalgame

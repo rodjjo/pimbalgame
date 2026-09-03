@@ -28,3 +28,4 @@ CTesttestfile.cmake
 # Logs
 *.log
 *.log.*
+temp/

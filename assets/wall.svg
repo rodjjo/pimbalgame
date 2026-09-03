@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="16" viewBox="0 0 72 16">
+  <!-- polished steel wall rail: rounded ends, top highlight, bottom shadow.
+       Origin used at the left endpoint, scaled to each wall's length. -->
+  <rect x="1" y="1" width="70" height="14" rx="7" ry="7"
+        fill="#5f6d85" stroke="#3f4a5f" stroke-width="1"/>
+  <rect x="9" y="3" width="54" height="3.4" rx="1.7" ry="1.7"
+        fill="#aeb9d6" opacity="0.85"/>
+  <rect x="7" y="11.5" width="58" height="2" rx="1"
+        fill="#394356" opacity="0.7"/>
+</svg>

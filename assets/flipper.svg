@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40">
+  <!-- pinball flipper: fat pivot end on the LEFT, slim rounded tip on the RIGHT,
+       symmetric about the vertical centre line y=20. Pivot bolt sits at x=18. -->
+  <path d="M 18 7
+           C 42 6 92 11 130 15
+           C 136 16 136 24 130 25
+           C 92 30 42 34 18 33
+           C 11 32 11 8 18 7 Z"
+        fill="#f2a52a" stroke="#b9731a" stroke-width="1.6"/>
+  <!-- top highlight streak -->
+  <path d="M 24 11 C 55 10 92 14 122 18"
+        fill="none" stroke="#ffe9b0" stroke-width="2.6" stroke-linecap="round" opacity="0.9"/>
+  <!-- dark pivot bearing -->
+  <circle cx="18" cy="20" r="6.6" fill="#6f4510"/>
+  <circle cx="18" cy="20" r="3.4" fill="#3a250a"/>
+  <!-- tip cap highlight -->
+  <circle cx="127" cy="20" r="2.2" fill="#ffdfa0" opacity="0.9"/>
+</svg>

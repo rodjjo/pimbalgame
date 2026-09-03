@@ -554,7 +554,8 @@ void parsePathD(const std::string& in, Path& path) {
                 start = p;
                 path.s.push_back(Subpath{{p}, false});
                 while (i + 1 < v.size()) {
-                    Pt q = P(v[i++], v[i++]);
+                    float nx = v[i++], ny = v[i++];
+                    Pt q = P(nx, ny);
                     cur = q;
                     path.s.back().p.push_back(q);
                 }
@@ -565,7 +566,8 @@ void parsePathD(const std::string& in, Path& path) {
         case 'l':
             while (i + 1 < v.size()) {
                 ensure();
-                Pt p = P(v[i++], v[i++]);
+                float nx = v[i++], ny = v[i++];
+                Pt p = P(nx, ny);
                 path.s.back().p.push_back(p);
                 cur = p;
             }
@@ -595,9 +597,10 @@ void parsePathD(const std::string& in, Path& path) {
             while (i + 5 <= v.size()) {
                 ensure();
                 Pt p0 = cur;
-                Pt p1 = P(v[i++], v[i++]);
-                Pt p2 = P(v[i++], v[i++]);
-                Pt p3 = P(v[i++], v[i++]);
+                float x1 = v[i++], y1 = v[i++];
+                float x2 = v[i++], y2 = v[i++];
+                float x3 = v[i++], y3 = v[i++];
+                Pt p1 = P(x1, y1), p2 = P(x2, y2), p3 = P(x3, y3);
                 cubic(path.s.back(), p0, p1, p2, p3);
                 prevCtrl = p2;
                 cur = p3;
@@ -608,8 +611,9 @@ void parsePathD(const std::string& in, Path& path) {
             while (i + 3 <= v.size()) {
                 ensure();
                 Pt p0 = cur;
-                Pt p1 = P(v[i++], v[i++]);
-                Pt p2 = P(v[i++], v[i++]);
+                float x1 = v[i++], y1 = v[i++];
+                float x2 = v[i++], y2 = v[i++];
+                Pt p1 = P(x1, y1), p2 = P(x2, y2);
                 quad(path.s.back(), p0, p1, p2);
                 prevCtrl = p1;
                 cur = p2;
@@ -620,8 +624,9 @@ void parsePathD(const std::string& in, Path& path) {
             while (i + 3 <= v.size()) {
                 ensure();
                 Pt p1 = (prevCmd == 'c' || prevCmd == 's') ? Pt{2 * cur.x - prevCtrl.x, 2 * cur.y - prevCtrl.y} : cur;
-                Pt p2 = P(v[i++], v[i++]);
-                Pt p3 = P(v[i++], v[i++]);
+                float x2 = v[i++], y2 = v[i++];
+                float x3 = v[i++], y3 = v[i++];
+                Pt p2 = P(x2, y2), p3 = P(x3, y3);
                 cubic(path.s.back(), cur, p1, p2, p3);
                 prevCtrl = p2;
                 cur = p3;
@@ -632,7 +637,8 @@ void parsePathD(const std::string& in, Path& path) {
             while (i + 1 <= v.size()) {
                 ensure();
                 Pt p1 = (prevCmd == 'q' || prevCmd == 't') ? Pt{2 * cur.x - prevCtrl.x, 2 * cur.y - prevCtrl.y} : cur;
-                Pt p2 = P(v[i++], v[i++]);
+                float x2 = v[i++], y2 = v[i++];
+                Pt p2 = P(x2, y2);
                 quad(path.s.back(), cur, p1, p2);
                 prevCtrl = p1;
                 cur = p2;
@@ -663,9 +669,9 @@ void composite(Buf& buf, int x, int y, float R, float G, float B, float A) {
     float sa = A * 255.0f, sr = R * A, sg = G * A, sb = B * A;
     float da = buf(x, y, 0, 3), dr = buf(x, y, 0, 0), dg = buf(x, y, 0, 1), db = buf(x, y, 0, 2);
     float na = da + sa * (1.0f - da / 255.0f);
-    float nr = dr + sr - 2.0f * dr * sa / 255.0f;
-    float ng = dg + sg - 2.0f * dg * sa / 255.0f;
-    float nb = db + sb - 2.0f * db * sa / 255.0f;
+    float nr = dr + sr - 1.0f * dr * sa / 255.0f;
+    float ng = dg + sg - 1.0f * dg * sa / 255.0f;
+    float nb = db + sb - 1.0f * db * sa / 255.0f;
     buf(x, y, 0, 3) = static_cast<unsigned char>(clampf(na, 0, 255) + 0.5f);
     buf(x, y, 0, 0) = static_cast<unsigned char>(clampf(nr, 0, 255) + 0.5f);
     buf(x, y, 0, 1) = static_cast<unsigned char>(clampf(ng, 0, 255) + 0.5f);
@@ -875,15 +881,14 @@ void buildRectPath(const std::string& xs, const std::string& ys, const std::stri
             sp.p.push_back(Pt{cx + rxv * std::cos(a), cy + ryv * std::sin(a)});
         }
     };
-    sp.p.push_back(Pt{x0 + rxv, y0});
-    arc(x0 + rxv, y0, 270, 360);
-    sp.p.push_back(Pt{x0 + w - rxv, y0});
-    arc(x0 + w - rxv, y0, 0, 90);
-    sp.p.push_back(Pt{x0 + w, y0 + h - ryv});
-    arc(x0 + w - rxv, y0 + h - ryv, 90, 180);
-    sp.p.push_back(Pt{x0 + rxv, y0 + h});
-    arc(x0 + rxv, y0 + h - ryv, 180, 270);
-    sp.p.push_back(Pt{x0, y0 + ryv});
+    sp.p.push_back(Pt{x0 + rxv, y0});                       // top-edge start (A)
+    arc(x0 + w - rxv, y0 + ryv, 270, 360);                  // top-right corner: B->C
+    sp.p.push_back(Pt{x0 + w, y0 + ryv});                   // right-edge start (C)
+    arc(x0 + w - rxv, y0 + h - ryv, 0, 90);                 // bottom-right corner: D->E
+    sp.p.push_back(Pt{x0 + w - rxv, y0 + h});               // bottom-edge start (E)
+    arc(x0 + rxv, y0 + h - ryv, 90, 180);                   // bottom-left corner: F->G
+    sp.p.push_back(Pt{x0, y0 + h - ryv});                   // left-edge start (G)
+    arc(x0 + rxv, y0 + ryv, 180, 270);                      // top-left corner: H->A
     std::vector<Pt> d;
     for (auto& p : sp.p)
         if (d.empty() || d.back().x != p.x || d.back().y != p.y) d.push_back(p);

@@ -4,6 +4,8 @@
 
 namespace pimbalgame
 {
+class Textures;
+
 // A rotating flipper. It pivots around a fixed point and swings between a
 // resting angle and an active angle. Its angular velocity is used to impart
 // speed to the ball on contact.
@@ -29,7 +31,10 @@ public:
     // Linear velocity of the flipper surface at `contact`.
     sf::Vector2f surfaceVelocity(const sf::Vector2f& contact) const;
 
-    void render(sf::RenderWindow& window) const;
+    // Draws the flipper as the atlas "flipper" texture, pivoted so its tip
+    // coincides with bodyB(). Left and right flippers share one texture; the
+    // left one is mirrored. Falls back to a plain bar if the atlas is absent.
+    void render(sf::RenderWindow& window, const Textures& tex) const;
 
 private:
     void recompute();
@@ -45,8 +50,6 @@ private:
     bool mActive;
 
     sf::Vector2f mTip;
-    sf::RectangleShape mBody;
-    sf::CircleShape mCap;
 };
 
 } // namespace pimbalgame

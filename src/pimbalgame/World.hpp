@@ -8,6 +8,8 @@
 #include "pimbalgame/Ball.hpp"
 #include "pimbalgame/Flipper.hpp"
 #include "pimbalgame/Bumper.hpp"
+#include "pimbalgame/Particles.hpp"
+#include "pimbalgame/Textures.hpp"
 
 namespace pimbalgame
 {
@@ -52,6 +54,7 @@ private:
     void collideFlippers();
     void collidePlunger();
     void checkDrain();
+    void renderBackground(sf::RenderWindow& window) const;
 
     void updatePlunger(float dt);
     void resolveSegment(const sf::Vector2f& a, const sf::Vector2f& b,
@@ -62,6 +65,12 @@ private:
     std::vector<Wall> mWalls;
     std::vector<std::unique_ptr<Flipper>> mFlippers;
     std::vector<std::unique_ptr<Bumper>> mBumpers;
+
+    // Generated art: the embeddable texture atlas (owns the atlas sf::Texture)
+    // and the ball's particle effects (glow + sparks).
+    Textures mTextures;
+    Particles mParticles;
+    std::optional<sf::Sprite> mSkull;  // decorative background watermark
 
     // Input state.
     bool mLeftFlipper = false;

@@ -1,4 +1,5 @@
-#include "pimbalgame/Bumper.hpp"
+#include "Bumper.hpp"
+#include "Textures.hpp"
 #include <algorithm>
 
 namespace pimbalgame
@@ -46,15 +47,46 @@ void Bumper::recompute()
     mRing.setPosition(mPosition);
 }
 
-void Bumper::render(sf::RenderWindow& window) const
+void Bumper::render(sf::RenderWindow& window, const Textures& tex) const
 {
-    sf::CircleShape lit = shape;
+    if (!tex.loaded())
+    {
+        // Fallback: plain disc + ring (should not happen with the atlas).
+        sf::CircleShape lit = shape;
+        if (mFlashTimer > 0.0f)
+        {
+            lit.setFillColor(sf::Color(210, 255, 255));
+        }
+        window.draw(lit);
+        window.draw(mRing);
+        return;
+    }
+
+    // The atlas "bumper" disc body has radius 36 texels, which maps to the
+    // largest (reference) bumper; scale every bumper so its disc edge equals
+    // its physics radius.
+    const float scale = mRadius / 36.f;
+    sf::Sprite s = tex.get("bumper");
+    s.setOrigin(sf::Vector2f(50.f, 50.f));
+    s.setPosition(mPosition);
+    s.setScale(sf::Vector2f(scale, scale));
+    s.setColor(mFlashTimer > 0.0f ? sf::Color(230, 255, 255) : sf::Color(255, 255, 255));
+    window.draw(s);
+
+    // Glowing halo while flashing.
     if (mFlashTimer > 0.0f)
     {
-        lit.setFillColor(sf::Color(210, 255, 255));
+        sf::Sprite glow = tex.get("glow");
+        const float glowScale = (mRadius + 16.f) / 20.f;
+        glow.setOrigin(sf::Vector2f(32.f, 32.f));
+        glow.setPosition(mPosition);
+        glow.setScale(sf::Vector2f(glowScale, glowScale));
+        glow.setColor(sf::Color(190, 255, 255, 150));
+
+        // Additive glow: SFML 3.1 exposes the blend mode via RenderStates on
+        // draw() (applyBlendMode() is private).
+        window.draw(glow, sf::RenderStates(sf::BlendAdd));
     }
-    window.draw(lit);
-    window.draw(mRing);
 }
 
 } // namespace pimbalgame

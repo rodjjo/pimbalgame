@@ -4,6 +4,9 @@
 
 namespace pimbalgame
 {
+
+class Textures;
+
 // The pinball. Holds its dynamic state plus a render shape.
 struct Ball
 {
@@ -14,7 +17,7 @@ struct Ball
     float maxSpeed = 1500.f;    // speed clamp to keep physics stable
     sf::Color color{196, 206, 255};
 
-    sf::CircleShape shape;      // rendering
+    sf::CircleShape shape;      // fallback rendering (procedural)
 
     Ball();
 
@@ -23,6 +26,10 @@ struct Ball
 
     // Limits the speed to maxSpeed.
     void clampSpeed();
+
+    // Draws the ball as the atlas "ball" texture, centred on `position`,
+    // falling back to the procedural circle when the atlas is unavailable.
+    void render(sf::RenderWindow& window, const Textures& tex) const;
 };
 
 } // namespace pimbalgame

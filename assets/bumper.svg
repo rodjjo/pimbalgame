@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <!-- bumper (largest, ~r34 with ring). Concentric glowing disc + metal ring. -->
+  <!-- metal ring -->
+  <circle cx="50" cy="50" r="44" fill="#0f3b42" stroke="#2f7d88" stroke-width="3"/>
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#9ff4ea" stroke-width="2" opacity="0.85"/>
+  <!-- body disc, concentric glow bands (center = hottest) -->
+  <circle cx="50" cy="50" r="36" fill="#1fb0c6"/>
+  <circle cx="50" cy="50" r="28" fill="#48cdd6"/>
+  <circle cx="50" cy="50" r="20" fill="#a6f0f2"/>
+  <circle cx="50" cy="50" r="12" fill="#e9fffd"/>
+  <circle cx="50" cy="50" r="6"  fill="#ffffff"/>
+  <!-- specular highlight -->
+  <ellipse cx="38" cy="38" rx="9" ry="6" fill="#ffffff" opacity="0.55"
+           transform="rotate(-30 38 38)"/>
+</svg>

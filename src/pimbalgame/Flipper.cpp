@@ -1,4 +1,5 @@
-#include "pimbalgame/Flipper.hpp"
+#include "Flipper.hpp"
+#include "Textures.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -8,6 +9,13 @@ namespace
 {
     // How fast the flipper swings toward its target angle (rad/s).
     constexpr float kSwingSpeed = 12.0f;
+    constexpr float kPi = 3.14159265358979323846f;
+
+    // The flipper texture is drawn with the pivot (fat end) at this texel, so the
+    // sprite origin is placed there to align the visual pivot with the physics
+    // pivot. The tip sits ~110 texels away, matching the collision length.
+    constexpr float kPivotTexX = 18.f;
+    constexpr float kPivotTexY = 20.f;
 }
 
 Flipper::Flipper(Side side, sf::Vector2f pivot, float length,
@@ -21,14 +29,6 @@ Flipper::Flipper(Side side, sf::Vector2f pivot, float length,
     , mTargetAngle(restAngleRad)
     , mActive(false)
 {
-    mBody.setSize(sf::Vector2f(mLength, 14.f));
-    mBody.setOrigin(sf::Vector2f(0.f, 7.f));
-    mBody.setFillColor(sf::Color(240, 180, 40));
-
-    mCap.setRadius(8.f);
-    mCap.setOrigin(sf::Vector2f(8.f, 8.f));
-    mCap.setFillColor(sf::Color(220, 160, 30));
-
     recompute();
 }
 
@@ -73,15 +73,39 @@ sf::Vector2f Flipper::surfaceVelocity(const sf::Vector2f& contact) const
 void Flipper::recompute()
 {
     mTip = mPivot + sf::Vector2f(std::cos(mAngle), std::sin(mAngle)) * mLength;
-    mBody.setPosition(mPivot);
-    mBody.setRotation(sf::radians(mAngle));
-    mCap.setPosition(mPivot);
 }
 
-void Flipper::render(sf::RenderWindow& window) const
+void Flipper::render(sf::RenderWindow& window, const Textures& tex) const
 {
-    window.draw(mBody);
-    window.draw(mCap);
+    if (!tex.loaded())
+    {
+        // Fallback: a plain bar pivoted at mPivot.
+        sf::RectangleShape body(sf::Vector2f(mLength, 14.f));
+        body.setOrigin(sf::Vector2f(0.f, 7.f));
+        body.setPosition(mPivot);
+        body.setRotation(sf::radians(mAngle));
+        body.setFillColor(sf::Color(240, 180, 40));
+        window.draw(body);
+        return;
+    }
+
+    sf::Sprite s = tex.get("flipper");
+    s.setOrigin(sf::Vector2f(kPivotTexX, kPivotTexY));
+    s.setPosition(mPivot);
+
+    float rotation = mAngle;
+    float scaleX = 1.0f;
+    if (mSide == Side::Left)
+    {
+        // Mirror horizontally: the right flipper's local +x maps to screen -x,
+        // which is equivalent to rotating by -(mAngle) then flipping.
+        scaleX = -1.0f;
+        rotation -= kPi;
+    }
+    s.setRotation(sf::radians(rotation));
+    s.setScale(sf::Vector2f(scaleX, 1.0f));
+
+    window.draw(s);
 }
 
 } // namespace pimbalgame

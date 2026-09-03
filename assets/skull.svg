@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="340" viewBox="0 0 300 340">
+  <!-- decorative skull watermark for the playfield background.
+       Body is lighter than the table so it reads faintly behind the action. -->
+
+  <!-- bone body: cranium + jaw/cheek -->
+  <g stroke="#efe6cc" stroke-width="1.6" fill="#d8ceb2">
+    <ellipse cx="150" cy="106" rx="94" ry="98"/>
+    <ellipse cx="150" cy="222" rx="58" ry="56"/>
+  </g>
+
+  <!-- temporal hollows (subtle side shading) -->
+  <ellipse cx="108" cy="150" rx="27" ry="35" fill="#b9ad8c" opacity="0.55"/>
+  <ellipse cx="192" cy="150" rx="27" ry="35" fill="#b9ad8c" opacity="0.55"/>
+
+  <!-- eye sockets (read as dark holes) -->
+  <ellipse cx="112" cy="122" rx="17" ry="21" fill="#12141c" transform="rotate(-14 112 122)"/>
+  <ellipse cx="188" cy="122" rx="17" ry="21" fill="#12141c" transform="rotate(14 188 122)"/>
+  <!-- socket rims -->
+  <ellipse cx="112" cy="122" rx="17" ry="21" fill="none" stroke="#8b8263" stroke-width="1.6" transform="rotate(-14 112 122)"/>
+  <ellipse cx="188" cy="122" rx="17" ry="21" fill="none" stroke="#8b8263" stroke-width="1.6" transform="rotate(14 188 122)"/>
+
+  <!-- nose cavity -->
+  <path d="M143 160 L157 160 L152 180 L148 180 Z" fill="#12141c" stroke="#8b8263" stroke-width="1.4"/>
+
+  <!-- cheek / jaw shading under the teeth -->
+  <ellipse cx="150" cy="258" rx="40" ry="20" fill="#b3a784" opacity="0.5"/>
+
+  <!-- teeth: dark mouth gap with bone septa -->
+  <rect x="120" y="232" width="60" height="16" fill="#12141c"/>
+  <g stroke="#8b8263" stroke-width="1.6">
+    <line x1="132" y1="233" x2="132" y2="247"/>
+    <line x1="144" y1="233" x2="144" y2="247"/>
+    <line x1="156" y1="233" x2="156" y2="247"/>
+    <line x1="168" y1="233" x2="168" y2="247"/>
+  </g>
+</svg>

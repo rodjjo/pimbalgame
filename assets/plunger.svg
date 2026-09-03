@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="56" height="26" viewBox="0 0 56 26">
+  <!-- plunger launch pad: rounded bar, origin at centre. Pressed = darker,
+       released = brighter. -->
+  <rect x="2" y="2" width="52" height="22" rx="10" ry="10"
+        fill="#e8543c" stroke="#a22e1e" stroke-width="1.6"/>
+  <rect x="6" y="5" width="44" height="7" rx="4" ry="4"
+        fill="#ff9a82" opacity="0.9"/>
+  <line x1="10" y1="18" x2="46" y2="18" stroke="#b8362a" stroke-width="2" stroke-linecap="round"/>
+</svg>

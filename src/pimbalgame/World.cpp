@@ -44,17 +44,44 @@ namespace
     constexpr float kBallSpawnX = 565.f;
     constexpr float kBallSpawnY = 340.f;
 
+    constexpr float kWallTexW = 72.f;
+    constexpr float kWallTexH = 16.f;
+    constexpr float kWallThickness = 8.f;      // visual rail thickness (px)
+
+    // A textured wall rail: origin at the left endpoint, scaled to the segment.
     void drawWall(sf::RenderWindow& window, const sf::Vector2f& a,
-                  const sf::Vector2f& b, float thickness, const sf::Color& color)
+                  const sf::Vector2f& b, const Textures& tex)
     {
         const sf::Vector2f dir = b - a;
         const float len = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-        sf::RectangleShape rect(sf::Vector2f(len, thickness));
-        rect.setOrigin(sf::Vector2f(0.f, thickness / 2.0f));
-        rect.setPosition(a);
-        rect.setRotation(sf::radians(std::atan2(dir.y, dir.x)));
-        rect.setFillColor(color);
-        window.draw(rect);
+        if (len < 1e-3f)
+        {
+            return;
+        }
+        sf::Sprite s = tex.get("wall");
+        s.setOrigin(sf::Vector2f(0.f, kWallTexH * 0.5f));
+        s.setPosition(a);
+        // setRotation takes an sf::Angle; the wall's geometric angle is atan2(dy, dx) in radians.
+        s.setRotation(sf::radians(std::atan2(dir.y, dir.x)));
+        s.setScale(sf::Vector2f(len / kWallTexW, kWallThickness / kWallTexH));
+        window.draw(s);
+    }
+
+    constexpr float kPlungerTexW = 56.f;
+    constexpr float kPlungerTexH = 26.f;
+    constexpr float kPlungerDrawW = 42.f;
+    constexpr float kPlungerDrawH = 20.f;
+    constexpr float kChannelCenterX = (kChannelLeft + kChannelRight) * 0.5f;
+
+    // A textured launch pad in the right channel; reddens as it is charged.
+    void renderPlunger(sf::RenderWindow& window, float y, float charge, const Textures& tex)
+    {
+        sf::Sprite s = tex.get("plunger");
+        s.setOrigin(sf::Vector2f(kPlungerTexW * 0.5f, kPlungerTexH * 0.5f));
+        s.setPosition(sf::Vector2f(kChannelCenterX, y));
+        s.setScale(sf::Vector2f(kPlungerDrawW / kPlungerTexW, kPlungerDrawH / kPlungerTexH));
+        s.setColor(charge > 0.03f ? sf::Color(176, 74, 50) : sf::Color(255, 255, 255));
+        window.draw(s);
     }
 }
 
@@ -62,6 +89,22 @@ World::World(int /*windowWidth*/, int /*windowHeight*/)
 {
     buildTable();
     mPlungerY = kPlungerRestY;
+
+    // Decode the embedded atlas and wire the ball glow to it.
+    if (mTextures.load())
+    {
+        // Pass the glow's own rectangle inside the atlas: the halo must draw
+        // only the glow, not the whole atlas.
+        mParticles.setGlowTexture(&mTextures.texture(), mTextures.rect("glow"));
+
+        // Decorative skull watermark: centred on the bumper cluster.
+        mSkull = mTextures.get("skull");
+        mSkull->setOrigin(sf::Vector2f(150.f, 170.f));                 // centre of the 300x340 art
+        mSkull->setPosition(sf::Vector2f(320.f, 402.f));
+        mSkull->setScale(sf::Vector2f(0.80f, 0.80f));                  // ~240 px wide
+        mSkull->setColor(sf::Color(255, 255, 255, 110)); // faint watermark
+    }
+
     reset();
 }
 
@@ -130,32 +173,46 @@ void World::update(float dt)
     {
         b->update(dt);
     }
+
+    // Feed the ball to the particle system and age the sparks (physics timestep,
+    // so particle lifetimes are expressed in real seconds).
+    mParticles.setBall(mBall.position, mBall.velocity, mBall.radius);
+    mParticles.update(dt);
 }
 
 void World::render(sf::RenderWindow& window) const
 {
+    renderBackground(window);
+
     for (const auto& w : mWalls)
     {
-        drawWall(window, w.a, w.b, 8.f, sf::Color(120, 140, 180));
+        drawWall(window, w.a, w.b, mTextures);
     }
 
     // Plunger pad.
-    drawWall(window, sf::Vector2f(kChannelLeft + 6.f, mPlungerY),
-             sf::Vector2f(kChannelRight - 6.f, mPlungerY), 10.f,
-             sf::Color(200, 90, 90));
+    renderPlunger(window, mPlungerY, mCharge, mTextures);
 
     for (auto& b : mBumpers)
     {
-        b->render(window);
+        b->render(window, mTextures);
     }
     for (auto& f : mFlippers)
     {
-        f->render(window);
+        f->render(window, mTextures);
     }
 
-    sf::CircleShape ballShape = mBall.shape;
-    ballShape.setPosition(mBall.position);
-    window.draw(ballShape);
+    // Ball halo (behind the ball), the ball itself, then trailing sparks.
+    mParticles.renderGlow(window);
+    mBall.render(window, mTextures);
+    mParticles.renderEmbers(window);
+}
+
+void World::renderBackground(sf::RenderWindow& window) const
+{
+    if (mTextures.loaded() && mSkull)
+    {
+        window.draw(*mSkull);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +344,10 @@ void World::collideBumpers()
         {
             b->hit();
             mScore += b->score();
+            // Burst of sparks off the point where the ball meets the bumper.
+            const sf::Vector2f contact = mBall.position - n * mBall.radius;
+            mParticles.emitBurst(contact, 15, sf::Color(205, 255, 255),
+                                 sf::Color(80, 205, 255), 220.f, 520.f, 0.5f, 2.f, 4.6f);
         }
     }
 }
@@ -297,6 +358,15 @@ void World::collideFlippers()
     {
         const sf::Vector2f closest = ClosestPointOnSegment(mBall.position, f->bodyA(), f->bodyB());
         resolveSegment(f->bodyA(), f->bodyB(), 0.55f, f->surfaceVelocity(closest));
+
+        // Sparks when the ball slams into an active flipper at speed.
+        const float speed = std::sqrt(mBall.velocity.x * mBall.velocity.x +
+                                      mBall.velocity.y * mBall.velocity.y);
+        if (f->isActive() && speed > 480.f)
+        {
+            mParticles.emitBurst(closest, 8, sf::Color(255, 215, 140),
+                                 sf::Color(255, 150, 60), 120.f, 320.f, 0.4f, 1.6f, 3.4f);
+        }
 
         // Anti-stick: when a flipper is held up the ball must never be able to
         // settle into the small valley formed by the flipper and the adjacent
@@ -362,6 +432,9 @@ void World::updatePlunger(float dt)
             const float speed = kLaunchBase + mCharge * kLaunchExtra;
             mBall.velocity = sf::Vector2f(-150.f, -speed);
             mPlungerCooldown = 0.1f;
+            // Kick up sparks from the channel on launch.
+            mParticles.emitBurst(mBall.position, 10, sf::Color(255, 165, 85),
+                                 sf::Color(255, 95, 45), 80.f, 260.f, 0.45f, 2.f, 4.f);
         }
         mCharge = 0.0f;
         if (mPlungerY > kPlungerRestY)
