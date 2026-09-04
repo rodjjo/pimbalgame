@@ -13,6 +13,7 @@
 #include "pimbalgame/Bumper.hpp"
 #include "pimbalgame/Particles.hpp"
 #include "pimbalgame/Textures.hpp"
+#include "pimbalgame/SoundEffect.hpp"
 
 namespace pimbalgame
 {
@@ -38,6 +39,10 @@ public:
     void setLeftFlipper(bool active);
     void setRightFlipper(bool active);
     void setPlungerHeld(bool held);
+
+    // Optional bank of procedural sound effects. When set, game events (plunger
+    // pull/release, ball collisions, ball drain) trigger the matching effect.
+    void setSound(std::shared_ptr<SoundEffect> sound) { mSound = std::move(sound); }
 
     void update(float dt);
     void render(sf::RenderWindow& window) const;
@@ -100,6 +105,9 @@ private:
     int mScore = 0;
     int mBalls = 3;
     bool mGameOver = false;
+
+    // Procedural sound-effects bank (optional; null means muted gameplay audio).
+    std::shared_ptr<SoundEffect> mSound;
 };
 
 } // namespace pimbalgame

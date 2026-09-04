@@ -10,6 +10,7 @@ namespace pimbalgame
 {
 class World;
 class Music;
+class SoundEffect;
 
 // Container that owns the render window (centered on the desktop) and drives
 // the main loop: input, fixed-timestep physics update and rendering.
@@ -41,6 +42,7 @@ private:
     sf::RenderWindow mWindow;
     std::unique_ptr<World> mWorld;
     std::unique_ptr<Music> mMusic;
+    std::shared_ptr<SoundEffect> mSoundEffect;
 
     sf::Font mFont;
     bool mFontLoaded = false;

@@ -248,6 +248,7 @@ the release notes.
 | 2.2     | 2026-09-03 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
 | 2.3     | 2026-09-03 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
 | 2.4     | 2026-09-03 | Added continuous background music: the MIDI is rendered against the SoundFont with TinySoundFont and played on loop via SFML.  |
+| 2.5     | 2026-09-03 | Added procedural sound effects: short blips for the plunger, bumpers, walls, flippers and ball drain, synthesised from a tiny note language. |
 
 ### v2.0 (2026-09-03)
 
@@ -319,6 +320,25 @@ the release notes.
   against the system Vorbis/FLAC/Ogg libraries (`SFML_USE_SYSTEM_DEPS=ON`), so no
   in-tree codec build is needed. If the assets cannot be loaded the game still
   runs, just muted.
+
+### v2.5 (2026-09-03)
+
+- **Procedural sound effects.** In addition to the background music, the game
+  now plays short, synthesised blips for gameplay events — plunger pull and
+  release, bumper hits, wall and flipper bumps, and the ball draining. A new
+  `SoundEffect` component (`src/pimbalgame/SoundEffect.{hpp,cpp}`) owns them.
+  Each effect is described by a tiny note language rather than a stored audio
+  file, e.g. `"@180 ~square C3e E3e G3e"` (180 BPM, square wave, then the notes
+  C3/E3/G3 as eighths). A note is `[A-G][#|b][octave][suffix]` where the suffix
+  sets the duration (`w`/`h`/`q`/`e`/`s`/`t` = whole/half/quarter/eighth/
+  sixteenth/triplet); `R` is a rest and `~<waveform>` picks `sine`, `square`,
+  `saw` or `triangle`. Every effect is rendered once at construction into a
+  cached PCM `std::vector` (the bank is a `std::map<std::string,
+  std::vector<std::int16_t>>`), then handed to an `sf::SoundBuffer` played over
+  a small 8-voice pool, so the per-frame cost is just a map lookup and a cheap
+  replay — no synthesis on the main loop. `World` triggers the effects from the
+  plunger edge transitions, ball<->bumper/wall/flipper contact events and the
+  drain check; `Game` builds the bank and shares it with the `World`.
 
 ### v1.2 (2026-09-03)
 

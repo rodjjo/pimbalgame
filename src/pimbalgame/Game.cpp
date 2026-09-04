@@ -1,5 +1,6 @@
 #include "pimbalgame/Game.hpp"
 #include "pimbalgame/Music.hpp"
+#include "pimbalgame/SoundEffect.hpp"
 #include "pimbalgame/World.hpp"
 #include <algorithm>
 #include <filesystem>
@@ -102,6 +103,12 @@ Game::Game()
     }
 
     mWorld = std::make_unique<World>(kWindowWidth, kWindowHeight);
+
+    // Procedural sound-effects bank (short, synthesized blips for game events).
+    // Audio failure is non-fatal: the game remains fully playable with muted
+    // audio if the audio device cannot be initialised.
+    mSoundEffect = std::make_shared<SoundEffect>();
+    mWorld->setSound(mSoundEffect);
 
     // Load and play the background music. Audio failure is non-fatal: the game
     // remains fully playable with muted audio if the assets cannot be loaded.

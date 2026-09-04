@@ -83,6 +83,13 @@ namespace
     inline b2Vec2 toM(float x, float y) { return b2Vec2{ x / kPpm, y / kPpm }; }
     inline sf::Vector2f toPx(b2Vec2 p) { return sf::Vector2f(p.x * kPpm, p.y * kPpm); }
 
+    // Box2D body/shape ids are opaque handles with no operator==; bodies created
+    // in one world carry a unique, stable `index`, so compare that.
+    inline bool sameBody(b2BodyId a, b2BodyId b)
+    {
+        return a.index1 == b.index1;
+    }
+
     // A textured wall rail: origin at the left endpoint, scaled to the segment.
     void drawWall(sf::RenderWindow& window, const sf::Vector2f& a,
                   const sf::Vector2f& b, const Textures& tex)
@@ -180,7 +187,22 @@ void World::setRightFlipper(bool active)
 
 void World::setPlungerHeld(bool held)
 {
+    const bool wasHeld = mPlungerHeld;
     mPlungerHeld = held;
+
+    // Edge-triggered so the plunger plays once per pull / release, not every
+    // frame while the key is held down.
+    if (mSound)
+    {
+        if (held && !wasHeld)
+        {
+            mSound->play("plunger_down");
+        }
+        else if (!held && wasHeld)
+        {
+            mSound->play("plunger_up");
+        }
+    }
 }
 
 void World::update(float dt)
@@ -473,6 +495,35 @@ void World::processContacts()
         {
             bumper = static_cast<Bumper*>(ua);
         }
+        else if (ua == (void*)&kBallTag || ub == (void*)&kBallTag)
+        {
+            // Ball hit a non-bumper surface (wall, flipper or launch pad).
+            const bool hitWall = (sameBody(bodyA, mWallBody) || sameBody(bodyB, mWallBody));
+            bool hitFlipper = false;
+            for (const auto& f : mFlippers)
+            {
+                if (sameBody(f->bodyId, bodyA) || sameBody(f->bodyId, bodyB))
+                {
+                    hitFlipper = true;
+                    break;
+                }
+            }
+            if (mSound)
+            {
+                if (hitWall)
+                {
+                    mSound->play("ball_hit_wall");
+                }
+                else if (hitFlipper)
+                {
+                    mSound->play("ball_hit_flipper");
+                }
+            }
+            // A non-bumper contact (wall / flipper / launch pad) is already
+            // resolved by Box2D, and there is no bumper kick or scoring to apply.
+            // Skip the bumper code below, which assumes a non-null `bumper`.
+            continue;
+        }
         else
         {
             continue;
@@ -498,6 +549,10 @@ void World::processContacts()
             mBall.velocity = n * bumper->kickSpeed() + vt * 0.85f;
 
             bumper->hit();
+            if (mSound)
+            {
+                mSound->play("ball_hit_bumper");
+            }
             mScore += bumper->score();
 
             // Burst of sparks off the point where the ball meets the bumper.
@@ -603,6 +658,11 @@ void World::checkDrain()
     if (mBall.position.y <= kFloorY)
     {
         return;
+    }
+
+    if (mSound)
+    {
+        mSound->play("ball_drain");
     }
 
     if (mBalls <= 1)

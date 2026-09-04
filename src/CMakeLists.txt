@@ -11,6 +11,7 @@ add_executable(pimbalgame
     pimbalgame/Textures.cpp
     pimbalgame/Particles.cpp
     pimbalgame/Music.cpp
+    pimbalgame/SoundEffect.cpp
 )
 
 target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
