@@ -247,6 +247,7 @@ the release notes.
 | 2.1     | 2026-09-03 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad.        |
 | 2.2     | 2026-09-03 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
 | 2.3     | 2026-09-03 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
+| 2.4     | 2026-09-03 | Added continuous background music: the MIDI is rendered against the SoundFont with TinySoundFont and played on loop via SFML.  |
 
 ### v2.0 (2026-09-03)
 
@@ -298,6 +299,26 @@ the release notes.
   now engages at `radius + half-thickness (+ slack)`, so the guard pushes the
   ball off the surface as soon as it settles, exactly as intended. The flipper
   pivots were also restored to (200, 825) / (440, 825).
+
+### v2.4 (2026-09-03)
+
+- **Background music.** The game now plays continuous background music. A
+  SoundFont (`assets/sounds/sound_file.sf2`) and a MIDI file
+  (`assets/sounds/texas_e_pacific_boogie_woogie_bass.mid`) are loaded at startup
+  and the track is synthesised with [TinySoundFont](https://github.com/schellingb/TinySoundFont)
+  (the single-header `tsf.h` + `tml.h`, added as a git submodule). The MIDI is
+  replayed against the SoundFont — dispatching program, note-on/off, pitch-wheel
+  and control-change messages as a virtual playback clock advances — and the
+  rendered 16-bit stereo samples are cached in a `std::vector`. That cache is
+  then handed to an `sf::SoundBuffer` wrapped by an `sf::Sound`, which plays on
+  loop. Rendering once up front keeps the gameplay audio thread free of
+  synthesis; the whole track lives in memory, which is fine for a short loop.
+  A `Music` component (`src/pimbalgame/Music.{hpp,cpp}`) owns the render and
+  playback; `Game` loads and starts it, resolving the assets next to the
+  executable (falling back to `assets/sounds/`). SFML's Audio module is built
+  against the system Vorbis/FLAC/Ogg libraries (`SFML_USE_SYSTEM_DEPS=ON`), so no
+  in-tree codec build is needed. If the assets cannot be loaded the game still
+  runs, just muted.
 
 ### v1.2 (2026-09-03)
 

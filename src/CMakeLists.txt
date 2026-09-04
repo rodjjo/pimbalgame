@@ -10,25 +10,29 @@ add_executable(pimbalgame
     pimbalgame/Bumper.cpp
     pimbalgame/Textures.cpp
     pimbalgame/Particles.cpp
+    pimbalgame/Music.cpp
 )
 
 target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # TinySoundFont is a single-header dependency (tsf.h + tml.h) with no build
 # system of its own; expose its root as an include path so the game can #include
-# it now and pull in the implementation later by defining TSF_IMPLEMENTATION /
-# TML_IMPLEMENTATION in one source file.
+# it. The implementations are pulled in by defining TSF_IMPLEMENTATION /
+# TML_IMPLEMENTATION inside pimbalgame/Music.cpp (the one TU that owns them).
 target_include_directories(pimbalgame PRIVATE
     "${CMAKE_SOURCE_DIR}/dependencies/tiny-sound-font"
 )
 
 # SFML is built in-tree from the submodule, which exposes the namespaced alias
-# targets SFML::System, SFML::Window and SFML::Graphics. No find_package /
-# install step is required.
+# targets SFML::System, SFML::Window, SFML::Graphics and SFML::Audio. Audio is
+# required to feed the cached PCM (rendered by TinySoundFont) to the device.
+# SFML's Audio module is built against the system Vorbis/FLAC/Ogg libraries
+# (SFML_USE_SYSTEM_DEPS), so no extra in-tree codec build is needed.
 target_link_libraries(pimbalgame PRIVATE
     SFML::System
     SFML::Window
     SFML::Graphics
+    SFML::Audio
 )
 
 # Box2D is built in-tree from the submodule (see the root CMakeLists.txt), which
@@ -149,3 +153,9 @@ target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 # runtime (see Game::loadFont).
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/fonts/DejaVuSans.ttf
      DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/fonts)
+
+# Copy the background music assets (SoundFont + MIDI) next to the executable so
+# they can be found at runtime (see Game's resolveSoundFile).
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/sound_file.sf2
+     ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/texas_e_pacific_boogie_woogie_bass.mid
+      DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sounds)

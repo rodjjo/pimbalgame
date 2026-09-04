@@ -1,5 +1,6 @@
 #pragma once
 
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <memory>
@@ -8,6 +9,7 @@
 namespace pimbalgame
 {
 class World;
+class Music;
 
 // Container that owns the render window (centered on the desktop) and drives
 // the main loop: input, fixed-timestep physics update and rendering.
@@ -38,6 +40,7 @@ private:
 
     sf::RenderWindow mWindow;
     std::unique_ptr<World> mWorld;
+    std::unique_ptr<Music> mMusic;
 
     sf::Font mFont;
     bool mFontLoaded = false;

@@ -1,8 +1,10 @@
 #include "pimbalgame/Game.hpp"
+#include "pimbalgame/Music.hpp"
 #include "pimbalgame/World.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -53,6 +55,35 @@ namespace
 
     const char* kFontName = "fonts/DejaVuSans.ttf";
     const char* kSourceFontName = "assets/fonts/DejaVuSans.ttf";
+
+    // Background music assets. The SoundFont synthesises the audio and the MIDI
+    // drives it; both live in the game's sound assets and are copied next to the
+    // executable at build time (see src/CMakeLists.txt).
+    const char* kSoundFontName = "sounds/sound_file.sf2";
+    const char* kMidiName = "sounds/texas_e_pacific_boogie_woogie_bass.mid";
+    const char* kSourceSoundFontName = "assets/sounds/sound_file.sf2";
+    const char* kSourceMidiName = "assets/sounds/texas_e_pacific_boogie_woogie_bass.mid";
+
+    // Find a sound asset, preferring the copy next to the executable and falling
+    // back to the source-tree location (useful when run from the project root).
+    std::filesystem::path resolveSoundFile(const char* exeRelativeName, const char* sourceName)
+    {
+        std::vector<std::filesystem::path> candidates;
+        if (const std::filesystem::path exeDir = executableDir(); !exeDir.empty())
+        {
+            candidates.push_back(exeDir / exeRelativeName);
+        }
+        candidates.push_back(std::filesystem::path(sourceName));
+        for (const auto& path : candidates)
+        {
+            std::ifstream probe(path);
+            if (probe.good())
+            {
+                return path;
+            }
+        }
+        return {};
+    }
 }
 
 Game::Game()
@@ -71,6 +102,25 @@ Game::Game()
     }
 
     mWorld = std::make_unique<World>(kWindowWidth, kWindowHeight);
+
+    // Load and play the background music. Audio failure is non-fatal: the game
+    // remains fully playable with muted audio if the assets cannot be loaded.
+    const std::filesystem::path soundFontPath = resolveSoundFile(kSoundFontName, kSourceSoundFontName);
+    const std::filesystem::path midiPath = resolveSoundFile(kMidiName, kSourceMidiName);
+    if (!soundFontPath.empty() && !midiPath.empty())
+    {
+        mMusic = std::make_unique<Music>();
+        if (!mMusic->load(soundFontPath, midiPath))
+        {
+            std::cerr << "Failed to load background music (" << soundFontPath << ", "
+                      << midiPath << ")\n";
+        }
+        else
+        {
+            mMusic->play();
+        }
+    }
+
     updateHud();
 }
 

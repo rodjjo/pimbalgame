@@ -35,12 +35,15 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/sfml/CMakeLists.txt")
         "Run: git submodule update --init --recursive")
 endif()
 
-# The pinball game only needs the graphics/window/system components. Disabling
-# the others keeps the build self-contained so host packages such as Libssh2
-# (Network) or the Vorbis/gsm libraries (Audio) are not required. They can be
-# re-enabled by flipping these cache variables before configuring.
+# The pinball game uses the graphics/window/system components for rendering and
+# the audio component to feed the TinySoundFont-rendered PCM to the device. The
+# audio codecs (Vorbis/FLAC/Ogg, pulled in by the SFML Audio module) are taken
+# from the system libraries rather than built in-tree, so the build stays
+# self-contained with no network access at configure time. They can be
+# re-enabled/reconfigured by flipping these cache variables before configuring.
 set(SFML_BUILD_NETWORK OFF CACHE BOOL "Build the SFML network component" FORCE)
-set(SFML_BUILD_AUDIO OFF CACHE BOOL "Build the SFML audio component" FORCE)
+set(SFML_BUILD_AUDIO ON CACHE BOOL "Build the SFML audio component" FORCE)
+set(SFML_USE_SYSTEM_DEPS ON CACHE BOOL "Use system Vorbis/FLAC/Ogg for the SFML audio module" FORCE)
 
 # Build SFML as part of the project (static, from the submodule source).
 add_subdirectory(dependencies/sfml EXCLUDE_FROM_ALL)
