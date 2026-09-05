@@ -33,9 +33,17 @@ namespace
     constexpr float kChannelRight = 590.f;
     constexpr float kTop = 250.f;
 
-    // Flipper pivots and angles (radians).
-    constexpr sf::Vector2f kLeftPivot(200.f, 825.f);
-    constexpr sf::Vector2f kRightPivot(440.f, 825.f);
+    // Flipper pivots and angles (radians). Each pivot sits a little BELOW the
+    // end of its adjacent wall: the wall keeps its endpoint at kFlipperWallEndY
+    // (the height the pivots used to share), while the pivot drops kFlipperPivotDrop
+    // further down. That leaves the wall end overhanging the flipper, so a ball
+    // rolling down the wall drops onto the TOP of the resting flipper body
+    // instead of wedging into the pivot/wall corner -- where the flipper's linear
+    // velocity is ~0 and it could impart nothing to a settled ball.
+    constexpr float kFlipperWallEndY = 825.f;      // where the adjacent wall ends
+    constexpr float kFlipperPivotDrop = 10.f;       // pivot placed this far under the wall
+    constexpr sf::Vector2f kLeftPivot(200.f, kFlipperWallEndY + kFlipperPivotDrop);
+    constexpr sf::Vector2f kRightPivot(440.f, kFlipperWallEndY + kFlipperPivotDrop);
     constexpr float kFlipperLength = 110.f;
     // Thickness of the flipper collision box (matches the flipper sprite).
     constexpr float kFlipperThickness = 26.f;
@@ -335,8 +343,10 @@ void World::buildTable()
     // the lane sealed straight onto the pad so the ball rests on the plunger.
     addWall(kChannelLeft, 700.f, kChannelLeft, 865.f);
     addWall(kRight, kTop, kRight, 860.f);
-    addWall(155.f, 800.f, kLeftPivot.x, kLeftPivot.y);
-    addWall(470.f, 800.f, kRightPivot.x, kRightPivot.y);
+    // These walls end at kFlipperWallEndY (unchanged). The pivot now sits below
+    // this endpoint, so the wall overhangs and the ball falls onto the flipper.
+    addWall(155.f, 800.f, kLeftPivot.x, kFlipperWallEndY);
+    addWall(470.f, 800.f, kRightPivot.x, kFlipperWallEndY);
 
     // Flippers: kinematic bodies whose swing the solver transfers to the ball.
     {

@@ -249,6 +249,27 @@ the release notes.
 | 2.3     | 2026-09-03 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
 | 2.4     | 2026-09-03 | Added continuous background music: the MIDI is rendered against the SoundFont with TinySoundFont and played on loop via SFML.  |
 | 2.5     | 2026-09-03 | Added procedural sound effects: short blips for the plunger, bumpers, walls, flippers and ball drain, synthesised from a tiny note language. |
+| 2.6     | 2026-09-03 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
+| 2.7     | 2026-09-04 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
+
+### v2.7 (2026-09-04)
+
+- **Resting flipper no longer kicks the ball.** A flipper used to keep launching
+  the ball even after it was released and left motionless for the rest of the
+  game — and only *after* it had been swung at least once. The flippers are
+  Box2D kinematic bodies driven each frame by `b2Body_SetTargetTransform`, which
+  sets the body velocity needed to reach the requested angle in one step and
+  **returns early without touching the velocity** whenever that requested
+  velocity is below the sleep threshold. On the settling frame that velocity is
+  zero, so the leftover swing velocity of the previous frame is never cleared,
+  and a kinematic body (`invMass == 0`, zero damping) preserves its velocity
+  across steps forever. That lingering spin then smacked the ball on every
+  contact, so a resting flipper gave the ball extra (vertical) speed instead of
+  acting as a wall. The fix zeroes the body's linear and angular velocity in
+  `Flipper::update()` as soon as the flipper settles at its target angle
+  (`mAngularVelocity == 0.0f`), while a swinging flipper is unaffected, so swing
+  momentum is preserved. A falling ball now bounces off a resting flipper like a
+  wall, a sliding ball keeps sliding, and only an active swing launches it.
 
 ### v2.0 (2026-09-03)
 

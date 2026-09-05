@@ -59,6 +59,22 @@ void Flipper::update(float dt)
 
     mAngularVelocity = dt > 0.0f ? (mAngle - prev) / dt : 0.0f;
     recompute();
+
+    // When the flipper has settled at its target angle its own angular velocity
+    // is zero -- but the kinematic Box2D body still carries the residual
+    // velocity of the last moving frame. `b2Body_SetTargetTransform` bails out
+    // (the requested velocity is below the sleep threshold) and leaves the body
+    // velocity untouched, and kinematic bodies preserve their velocity across
+    // steps (zero mass, no damping). That lingering spin would then smack the
+    // ball on every contact, even with the flipper held still. Zero it so a
+    // settled flipper acts as a genuine static wall. This only fires once the
+    // swing is finished (mAngularVelocity == 0 only when prev == mAngle ==
+    // mTargetAngle), so the momentum of an active swing is never lost.
+    if (bodyId.index1 != 0 && mAngularVelocity == 0.0f)
+    {
+        b2Body_SetLinearVelocity(bodyId, b2Vec2_zero);
+        b2Body_SetAngularVelocity(bodyId, 0.0f);
+    }
 }
 
 sf::Vector2f Flipper::surfaceVelocity(const sf::Vector2f& contact) const
