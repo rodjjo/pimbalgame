@@ -252,24 +252,23 @@ the release notes.
 | 2.6     | 2026-09-03 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
 | 2.7     | 2026-09-04 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
 
-### v2.7 (2026-09-04)
+### v1.2 (2026-09-03)
 
-- **Resting flipper no longer kicks the ball.** A flipper used to keep launching
-  the ball even after it was released and left motionless for the rest of the
-  game — and only *after* it had been swung at least once. The flippers are
-  Box2D kinematic bodies driven each frame by `b2Body_SetTargetTransform`, which
-  sets the body velocity needed to reach the requested angle in one step and
-  **returns early without touching the velocity** whenever that requested
-  velocity is below the sleep threshold. On the settling frame that velocity is
-  zero, so the leftover swing velocity of the previous frame is never cleared,
-  and a kinematic body (`invMass == 0`, zero damping) preserves its velocity
-  across steps forever. That lingering spin then smacked the ball on every
-  contact, so a resting flipper gave the ball extra (vertical) speed instead of
-  acting as a wall. The fix zeroes the body's linear and angular velocity in
-  `Flipper::update()` as soon as the flipper settles at its target angle
-  (`mAngularVelocity == 0.0f`), while a swinging flipper is unaffected, so swing
-  momentum is preserved. A falling ball now bounces off a resting flipper like a
-  wall, a sliding ball keeps sliding, and only an active swing launches it.
+- **Embedded texture atlas for the game.** `assets/*.svg` are now the only
+  version-controlled art. At build time the `svg2png` tool rasterizes every SVG
+  to a transparent PNG and packs them into a single embeddable C++ header
+  (`textures.cxxpng`) that the game `#include`s; `src/pimbalgame/Textures.cpp`
+  decodes the in-memory atlas and hands out sprites by name. The game ships no
+  image files, and falls back to rendering procedural shapes when configured
+  without the art tool (`-DBUILD_TOOLS=OFF`).
+- **Particles.** An additive-blended particle system gives the ball a soft glow
+  halo that brightens with speed, a comet-like trail when moving fast, and short
+  bursts of sparks on bumper / flipper contact and on the plunger launch.
+- **Physics tweaks.** Refinements to the flipper, bumper and ball handling
+  around contact and restitution.
+
+The `svg2png` tool is built only when the project is configured with
+`-DBUILD_TOOLS=ON` (default `ON`), wired through the top-level `CMakeLists.txt`.
 
 ### v2.0 (2026-09-03)
 
@@ -361,23 +360,24 @@ the release notes.
   plunger edge transitions, ball<->bumper/wall/flipper contact events and the
   drain check; `Game` builds the bank and shares it with the `World`.
 
-### v1.2 (2026-09-03)
+### v2.7 (2026-09-04)
 
-- **Embedded texture atlas for the game.** `assets/*.svg` are now the only
-  version-controlled art. At build time the `svg2png` tool rasterizes every SVG
-  to a transparent PNG and packs them into a single embeddable C++ header
-  (`textures.cxxpng`) that the game `#include`s; `src/pimbalgame/Textures.cpp`
-  decodes the in-memory atlas and hands out sprites by name. The game ships no
-  image files, and falls back to rendering procedural shapes when configured
-  without the art tool (`-DBUILD_TOOLS=OFF`).
-- **Particles.** An additive-blended particle system gives the ball a soft glow
-  halo that brightens with speed, a comet-like trail when moving fast, and short
-  bursts of sparks on bumper / flipper contact and on the plunger launch.
-- **Physics tweaks.** Refinements to the flipper, bumper and ball handling
-  around contact and restitution.
-
-The `svg2png` tool is built only when the project is configured with
-`-DBUILD_TOOLS=ON` (default `ON`), wired through the top-level `CMakeLists.txt`.
+- **Resting flipper no longer kicks the ball.** A flipper used to keep launching
+  the ball even after it was released and left motionless for the rest of the
+  game — and only *after* it had been swung at least once. The flippers are
+  Box2D kinematic bodies driven each frame by `b2Body_SetTargetTransform`, which
+  sets the body velocity needed to reach the requested angle in one step and
+  **returns early without touching the velocity** whenever that requested
+  velocity is below the sleep threshold. On the settling frame that velocity is
+  zero, so the leftover swing velocity of the previous frame is never cleared,
+  and a kinematic body (`invMass == 0`, zero damping) preserves its velocity
+  across steps forever. That lingering spin then smacked the ball on every
+  contact, so a resting flipper gave the ball extra (vertical) speed instead of
+  acting as a wall. The fix zeroes the body's linear and angular velocity in
+  `Flipper::update()` as soon as the flipper settles at its target angle
+  (`mAngularVelocity == 0.0f`), while a swinging flipper is unaffected, so swing
+  momentum is preserved. A falling ball now bounces off a resting flipper like a
+  wall, a sliding ball keeps sliding, and only an active swing launches it.
 
 ## License
 
