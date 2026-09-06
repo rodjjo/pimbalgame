@@ -177,6 +177,17 @@ void SoundEffect::VoiceBank::play(const std::string& name)
     voice->play();
 }
 
+void SoundEffect::VoiceBank::applyVolume(float volume)
+{
+    for (auto& entry : effects)
+    {
+        for (auto& voice : entry.second.voices)
+        {
+            voice->setVolume(volume);
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SoundEffect
 // ---------------------------------------------------------------------------
@@ -402,6 +413,17 @@ void SoundEffect::workerLoop(std::size_t index)
     while (dequeue(name))
     {
         mBanks[index].play(name);
+    }
+}
+
+void SoundEffect::setSfxVolume(float volume)
+{
+    // Mirror the requested volume onto every voice of every cached effect on
+    // both worker banks. The banks are already fully built, so this is a plain
+    // loop with no allocation or shared-state access.
+    for (auto& bank : mBanks)
+    {
+        bank.applyVolume(volume);
     }
 }
 

@@ -37,6 +37,10 @@ public:
     void stop();
     [[nodiscard]] bool isPlaying() const;
 
+    // Master volume (0..100+, SFML convention). Safe to call; ignored when
+    // invalid. Used by the menu's Music/General sliders.
+    void setVolume(float volume);
+
     // True once load() has succeeded.
     [[nodiscard]] bool isValid() const { return mValid; }
 

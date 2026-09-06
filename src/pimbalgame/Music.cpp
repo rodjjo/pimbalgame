@@ -208,6 +208,14 @@ void Music::stop()
     }
 }
 
+void Music::setVolume(float volume)
+{
+    if (mSound)
+    {
+        mSound->setVolume(volume);
+    }
+}
+
 bool Music::isPlaying() const
 {
     return mValid && mSound && mSound->getStatus() == sf::SoundSource::Status::Playing;

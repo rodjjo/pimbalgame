@@ -57,6 +57,11 @@ transformer inference engine for sparse models.
   launch the ball with a power proportional to the charge.
 - **HUD & game loop.** On-screen score, remaining balls and a "Game Over / restart"
   prompt. Three balls per game.
+- **Menu & options.** A full game menu with **New Game**, **Options** and
+  **Exit**. The Options view exposes General / Music / SFX volume sliders that the
+  user scrolls with the mouse or clicks to jump. Pressing `Esc` during play pauses
+  (freezing the physics) and shows the pause overlay; `Esc` again resumes, and
+  **Exit** closes the window.
 - **Portable font loading.** A bundled font is resolved relative to the executable
   (or source tree) at runtime, falling back gracefully if it is missing.
 
@@ -68,7 +73,14 @@ transformer inference engine for sparse models.
 | Right flipper     | `D` or `→` (Right arrow)      |
 | Plunger (hold)    | `Space`                       |
 | Restart (game over) | `R`                         |
-| Quit              | `Esc` or the window close button |
+| Pause / open menu | `Esc` (during gameplay)       |
+| Quit (from menu)  | Menu → **Exit**, or the window close button |
+
+During play, pressing `Esc` pauses and opens the menu; pressing `Esc` again
+resumes. The menu offers **New Game**, **Options** (General / Music / SFX
+volume sliders, adjusted by scrolling the mouse over a bar or clicking it) and
+**Exit**. Arrow keys / the mouse wheel navigate, `Enter` / `Space` select, and
+`Esc` goes back or resumes.
 
 ## Project layout
 
@@ -232,11 +244,13 @@ is copied next to the executable by the build so it can be located at runtime.
 
 ## Release notes
 
-The game's developer tool, [`tools/svg2png`](tools/svg2png.md), turns the
-project's SVG art into PNG textures and packs them into an embeddable C++
-texture atlas. Its full documentation (usage, modes, options, supported SVG)
-lives in [tools/svg2png.md](tools/svg2png.md); the tool is summarized here in
-the release notes.
+The game's developer tools are documented alongside their sources:
+[`tools/svg2png`](tools/svg2png.md) turns the project's SVG art into PNG
+textures and packs them into an embeddable C++ texture atlas, and
+[`tools/text2mid`](tools/text2mid.md) synthesises a Standard MIDI File from a
+melody written in the project's own "mel" note language. Their full documentation
+(usage, options, language) lives in those two files; the tools are summarised here
+in the release notes.
 
 | Version | Date       | Summary                                                                                     |
 | ------- | ---------- | ------------------------------------------------------------------------------------------- |
@@ -251,6 +265,7 @@ the release notes.
 | 2.5     | 2026-09-03 | Added procedural sound effects: short blips for the plunger, bumpers, walls, flippers and ball drain, synthesised from a tiny note language. |
 | 2.6     | 2026-09-03 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
 | 2.7     | 2026-09-04 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
+| 2.8     | 2026-09-04 | Added a full game menu (New Game / Options / Exit) with per-category volume sliders and an Escape-to-pause overlay, plus `tools/text2mid` and the `mel` note language used to author the in-game theme (`assets/sounds/flipper_fever.mid`). |
 
 ### v1.2 (2026-09-03)
 
@@ -325,7 +340,7 @@ The `svg2png` tool is built only when the project is configured with
 
 - **Background music.** The game now plays continuous background music. A
   SoundFont (`assets/sounds/sound_file.sf2`) and a MIDI file
-  (`assets/sounds/texas_e_pacific_boogie_woogie_bass.mid`) are loaded at startup
+  (`assets/sounds/flipper_fever.mid`) are loaded at startup
   and the track is synthesised with [TinySoundFont](https://github.com/schellingb/TinySoundFont)
   (the single-header `tsf.h` + `tml.h`, added as a git submodule). The MIDI is
   replayed against the SoundFont — dispatching program, note-on/off, pitch-wheel
@@ -378,6 +393,58 @@ The `svg2png` tool is built only when the project is configured with
   (`mAngularVelocity == 0.0f`), while a swinging flipper is unaffected, so swing
   momentum is preserved. A falling ball now bounces off a resting flipper like a
   wall, a sliding ball keeps sliding, and only an active swing launches it.
+
+### v2.8 (2026-09-04)
+
+- **Game menu, pause overlay and volume options.** The game now boots into a full
+  menu with three real actions — **New Game** starts a fresh game, **Options**
+  opens the volume controls, and **Exit** closes the window. The Options view
+  exposes three sliders (General / Music / SFX): scrolling the mouse over a bar
+  changes it, clicking the bar jumps it, and the focused bar can also be nudged
+  with the left/right arrow keys. The three levels compose multiplicatively, so
+  the applied level is `general * category` — a genuine master volume on top of
+  the per-category sliders — and `Game` writes the result straight onto the
+  music and sound-effect playback sources, so the sliders are effective.
+  Pressing `Esc` during play pauses: the fixed-timestep physics loop stops (the
+  world freezes behind a translucent backdrop) and the pause overlay is shown, and
+  pressing `Esc` again resumes. The overlay reuses the same navigation (`Resume`,
+  volume sliders, `Main Menu`, `Quit`).
+- **`tools/text2mid` and the `mel` note language.** The background theme is
+  authored with a new, self-contained C++17 tool,
+  [`tools/text2mid`](tools/text2mid.md), which synthesises a Standard MIDI File
+  from a melody written in the project's own **"mel"** language. A melody is just
+  a whitespace/comma-separated stream of `[A-G]` note letters (with optional
+  `#`/`b` and a digit octave, `C4` == MIDI 60), `r` rests, `+`-joined chords, an
+  optional `/denominator` beat length, and `tempo`/`octave` directives. The phrase
+  is repeated to fill the requested duration (15–25 s) and written as a
+  format-1, single-track MIDI. Running it with no `--instruction` defaults to the
+  shipped `flipper_fever.mid` theme. The generated file is copied next to the
+  executable at build time and played by the same TinySoundFont path as before, so
+  the whole loop — from a short text string to in-game music — is produced without
+  any third-party audio authoring tools. Full documentation lives in
+  [tools/text2mid.md](tools/text2mid.md).
+  - **The shipped theme, `flipper_fever.mid`.** A heavy, pirate-flavoured rock
+    loop in E minor (E Dorian flavour, resolving to a B-dominant power chord). It
+    is a single palm-muted guitar line: a galloping E-minor riff over three bars
+    that ends on a whole-note B power chord, so the loop wraps **B (dominant) → E
+    (tonic)** — a V→i resolution — which keeps the seamless loop coherent. The
+    exact `mel` instruction (132 bpm, 4/4) written to produce it is:
+
+    ```
+    tempo 132
+    E2/8 E2/8 E2/16 E2/16 B1/8 A2/8 A2/16 A2/16 C3/8 B2/8
+    G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8
+    C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8
+    B1+F#2+B2/1
+    ```
+
+    Regenerate it with:
+
+    ```bash
+    text2mid --save-path assets/sounds/flipper_fever.mid \
+      --instruction "tempo 132 E2/8 E2/8 E2/16 E2/16 B1/8 A2/8 A2/16 A2/16 C3/8 B2/8 \
+G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
+    ```
 
 ## License
 

@@ -12,6 +12,7 @@ add_executable(pimbalgame
     pimbalgame/Particles.cpp
     pimbalgame/Music.cpp
     pimbalgame/SoundEffect.cpp
+    pimbalgame/Menu.cpp
 )
 
 target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -158,5 +159,5 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/fonts/DejaVuSans.ttf
 # Copy the background music assets (SoundFont + MIDI) next to the executable so
 # they can be found at runtime (see Game's resolveSoundFile).
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/sound_file.sf2
-     ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/texas_e_pacific_boogie_woogie_bass.mid
+     ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/flipper_fever.mid
       DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sounds)

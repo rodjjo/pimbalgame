@@ -90,6 +90,11 @@ public:
     void setMuted(bool muted) { mMuted = muted; }
     [[nodiscard]] bool isMuted() const { return mMuted; }
 
+    // Master volume (0..100+, SFML convention) applied to every effect voice on
+    // both workers. Safe to call at any time; used by the menu's SFX/General
+    // sliders. Cheap enough to call every frame.
+    void setSfxVolume(float volume);
+
     // Number of simultaneous voices for a single effect on a single worker.
     [[nodiscard]] static constexpr int voiceCount() { return kVoicesPerEffect; }
 
@@ -117,6 +122,10 @@ private:
         // Restart `name` on the next voice in its ring. No-op if unknown. Because
         // this worker owns all of `effects`, this touches no shared state.
         void play(const std::string& name);
+
+        // Apply `volume` (0..100+) to every voice of every cached effect. Since
+        // this worker owns all of `effects`, it touches no shared state.
+        void applyVolume(float volume);
     };
 
     static constexpr unsigned int kSampleRate = 44100;

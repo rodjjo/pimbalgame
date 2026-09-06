@@ -61,9 +61,9 @@ namespace
     // drives it; both live in the game's sound assets and are copied next to the
     // executable at build time (see src/CMakeLists.txt).
     const char* kSoundFontName = "sounds/sound_file.sf2";
-    const char* kMidiName = "sounds/texas_e_pacific_boogie_woogie_bass.mid";
+    const char* kMidiName = "sounds/flipper_fever.mid";
     const char* kSourceSoundFontName = "assets/sounds/sound_file.sf2";
-    const char* kSourceMidiName = "assets/sounds/texas_e_pacific_boogie_woogie_bass.mid";
+    const char* kSourceMidiName = "assets/sounds/flipper_fever.mid";
 
     // Find a sound asset, preferring the copy next to the executable and falling
     // back to the source-tree location (useful when run from the project root).
@@ -109,6 +109,16 @@ Game::Game()
     // audio if the audio device cannot be initialised.
     mSoundEffect = std::make_shared<SoundEffect>();
     mWorld->setSound(mSoundEffect);
+
+    // The menu subsystem. It needs the font to be loaded (see loadFont above);
+    // without a font the game still runs but the menu draws nothing.
+    if (mFontLoaded)
+    {
+        mMenu = std::make_unique<Menu>(mFont, mAudio);
+    }
+
+    // Apply the (default) audio settings to the playback sources.
+    applyAudioVolumes();
 
     // Load and play the background music. Audio failure is non-fatal: the game
     // remains fully playable with muted audio if the assets cannot be loaded.
@@ -174,7 +184,13 @@ bool Game::loadFont()
 int Game::run()
 {
     sf::Clock clock;
-    float accumulator = 0.0f;
+
+    // If the font failed to load we could not build a menu, so fall back to
+    // direct gameplay to keep the game reachable.
+    if (mScreen == Screen::Menu && !mMenu)
+    {
+        mScreen = Screen::Playing;
+    }
 
     while (mWindow.isOpen())
     {
@@ -185,51 +201,121 @@ int Game::run()
         {
             frameTime = 0.25f;
         }
-        accumulator += frameTime;
+        mAccumulator += frameTime;
 
-        processEvents();
+        // Route events: menu screens hand every event to the menu; gameplay
+        // keeps the Escape-to-pause and R-to-restart shortcuts.
+        const Menu::Request request = processEvents();
 
-        // Continuous keyboard state drives the flippers and plunger.
-        mWorld->setLeftFlipper(isLeftFlipperPressed());
-        mWorld->setRightFlipper(isRightFlipperPressed());
-        mWorld->setPlungerHeld(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space));
-
-        while (accumulator >= kPhysicsTimestep)
+        if (request == Menu::Request::StartGame)
         {
-            mWorld->update(kPhysicsTimestep);
-            accumulator -= kPhysicsTimestep;
+            // New Game: leave the menu and drop into a fresh game.
+            if (mMenu)
+            {
+                mMenu->setOverlay(false);
+            }
+            mAccumulator = 0.0f;
+            mScreen = Screen::Playing;
+            mWorld->reset();
+        }
+        else if (request == Menu::Request::ToMainMenu)
+        {
+            // Leave gameplay and show the main menu.
+            if (mMenu)
+            {
+                mMenu->setOverlay(false);
+            }
+            mAccumulator = 0.0f;
+            mScreen = Screen::Menu;
+        }
+        else if (request == Menu::Request::Resume)
+        {
+            // Close the pause overlay and resume gameplay.
+            if (mMenu)
+            {
+                mMenu->setOverlay(false);
+            }
+            mAccumulator = 0.0f;
+            mScreen = Screen::Playing;
+        }
+        else if (request == Menu::Request::Quit)
+        {
+            // Exit: close the window; the loop condition exits on the next check.
+            mWindow.close();
+            continue;
         }
 
-        updateHud();
+        // Keep the applied volumes in sync with whatever the menu just edited.
+        applyAudioVolumes();
 
-        render();
+        if (mScreen == Screen::Playing)
+        {
+            // Continuous keyboard state drives the flippers and plunger.
+            mWorld->setLeftFlipper(isLeftFlipperPressed());
+            mWorld->setRightFlipper(isRightFlipperPressed());
+            mWorld->setPlungerHeld(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space));
+
+            while (mAccumulator >= kPhysicsTimestep)
+            {
+                mWorld->update(kPhysicsTimestep);
+                mAccumulator -= kPhysicsTimestep;
+            }
+
+            updateHud();
+            render();
+        }
+        else
+        {
+            // Menu or Paused: the world is frozen and the menu owns the render.
+            renderMenu();
+        }
     }
 
     return 0;
 }
 
-void Game::processEvents()
+Menu::Request Game::processEvents()
 {
+    Menu::Request request = Menu::Request::None;
+
     while (auto event = mWindow.pollEvent())
     {
         if (event && event->is<sf::Event::Closed>())
         {
             mWindow.close();
+            return Menu::Request::Quit;
         }
 
-        if (auto* keyEvent = event->getIf<sf::Event::KeyPressed>())
+        if (mScreen == Screen::Playing)
         {
-            if (keyEvent->code == sf::Keyboard::Key::Escape)
+            if (auto* keyEvent = event->getIf<sf::Event::KeyPressed>())
             {
-                mWindow.close();
+                if (keyEvent->code == sf::Keyboard::Key::Escape)
+                {
+                    // Pause: freeze gameplay behind the pause overlay and hand
+                    // input to the menu. Escape (or Resume) from the overlay
+                    // returns to the game and resumes it.
+                    if (mMenu)
+                    {
+                        mMenu->enterPause();
+                        mAccumulator = 0.0f;
+                        mScreen = Screen::Paused;
+                    }
+                }
+                else if (keyEvent->code == sf::Keyboard::Key::R && mWorld->gameOver())
+                {
+                    mWorld->reset();
+                    updateHud();
+                }
             }
-            else if (keyEvent->code == sf::Keyboard::Key::R && mWorld->gameOver())
-            {
-                mWorld->reset();
-                updateHud();
-            }
+            continue;
         }
+
+        // Menu screen: hand every event to the menu.
+        request = mMenu->handle(*event);
     }
+
+    return request;
 }
 
 void Game::render()
@@ -249,6 +335,29 @@ void Game::render()
     }
 
     mWindow.display();
+}
+
+void Game::renderMenu()
+{
+    // The menu renders (and clears) the whole window itself.
+    mMenu->render(mWindow);
+    mWindow.display();
+}
+
+void Game::applyAudioVolumes()
+{
+    // The applied level is the master `general` slider multiplied by the
+    // individual slider, scaled to SFML's 0..100+ volume convention.
+    if (mMusic)
+    {
+        const float volume = std::min(1.0f, mAudio.general * mAudio.music) * 100.0f;
+        mMusic->setVolume(volume);
+    }
+    if (mSoundEffect)
+    {
+        const float volume = std::min(1.0f, mAudio.general * mAudio.sfx) * 100.0f;
+        mSoundEffect->setSfxVolume(volume);
+    }
 }
 
 void Game::updateHud()

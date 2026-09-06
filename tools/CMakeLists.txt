@@ -5,3 +5,4 @@
 # (see the root CMakeLists.txt).  Each tool lives in its own directory.
 # ---------------------------------------------------------------------------
 add_subdirectory(svg2png)
+add_subdirectory(text2mid)
