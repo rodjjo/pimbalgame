@@ -199,6 +199,7 @@ SoundEffect::SoundEffect()
     addSound("plunger_down",     "~saw C3e E3e G3e");        // pulling the plunger: rising charge
     addSound("plunger_up",       "~square E4e G4e C5q");     // releasing: launch arpeggio
     addSound("ball_hit_bumper",  "~sine E5s G5s C6h");       // bright chime
+    addSound("ball_hit_coin",    "~square C6s E6s G6s");     // shiny pickup arpeggio
     addSound("ball_hit_wall",    "~triangle G3e");           // soft tap
     addSound("ball_hit_flipper","~square G4s B4s");          // punchy tock
     addSound("ball_drain",       "~sine E4s C3h");           // losing the ball: falling tone

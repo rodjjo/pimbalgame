@@ -8,6 +8,7 @@ add_executable(pimbalgame
     pimbalgame/Ball.cpp
     pimbalgame/Flipper.cpp
     pimbalgame/Bumper.cpp
+    pimbalgame/Coin.cpp
     pimbalgame/Textures.cpp
     pimbalgame/Particles.cpp
     pimbalgame/Music.cpp

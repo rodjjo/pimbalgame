@@ -53,6 +53,11 @@ transformer inference engine for sparse models.
   valley formed by an active flipper and the adjacent wall.
 - **Bumpers.** Four circular bumpers apply a fixed radial kick and award points on
   contact, flashing briefly to give visual feedback.
+- **Coin pickups.** A gold coin randomly appears on the open playfield every 8–10 s
+  (randomised) at a spot clear of walls, flippers and bumpers, lasts 5–6 s
+  (randomised) and then vanishes. Hitting it with the ball awards 2000 points,
+  launches the ball off in a random direction at the same speed a flipper tip would
+  impart, and removes the coin so it cannot be collected twice. Art: `assets/coin.svg`.
 - **Plunger launcher.** Hold to charge a spring in the right channel; release to
   launch the ball with a power proportional to the charge.
 - **HUD & game loop.** On-screen score, remaining balls and a "Game Over / restart"
@@ -252,21 +257,22 @@ melody written in the project's own "mel" note language. Their full documentatio
 (usage, options, language) lives in those two files; the tools are summarised here
 in the release notes.
 
-| Version | Date       | Summary                                                                                     |
-| ------- | ---------- | ------------------------------------------------------------------------------------------- |
-| 1.0     | 2026-09-02 | Initial release: a simple pinball game.                                                     |
-| 1.1     | 2026-09-02 | Added `tools/svg2png`, a developer tool for turning the game's SVG art into PNG textures.   |
-| 1.2     | 2026-09-03 | Embedded texture atlas fed by `svg2png`, plus a particle system for the ball's visual flair.|
-| 2.0     | 2026-09-03 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1).               |
-| 2.1     | 2026-09-03 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad.        |
-| 2.2     | 2026-09-03 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
-| 2.3     | 2026-09-03 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
-| 2.4     | 2026-09-03 | Added continuous background music: the MIDI is rendered against the SoundFont with TinySoundFont and played on loop via SFML.  |
-| 2.5     | 2026-09-03 | Added procedural sound effects: short blips for the plunger, bumpers, walls, flippers and ball drain, synthesised from a tiny note language. |
-| 2.6     | 2026-09-03 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
-| 2.7     | 2026-09-04 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
-| 2.8     | 2026-09-04 | Added a full game menu (New Game / Options / Exit) with per-category volume sliders and an Escape-to-pause overlay, plus `tools/text2mid` and the `mel` note language used to author the in-game theme (`assets/sounds/flipper_fever.mid`). |
-| 2.9     | 2026-09-06 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
+| Version | Summary |
+| ------- | ------- |
+| 1.0.0 | Initial release: a simple pinball game. |
+| 1.1.0 | Added `tools/svg2png`, a developer tool for turning the game's SVG art into PNG textures. |
+| 1.2.0 | Embedded texture atlas fed by `svg2png`, plus a particle system for the ball's visual flair. |
+| 2.0.0 | Swapped the in-house physics for the Box2D engine (submodule, pinned v3.1.1). |
+| 2.1.0 | Fixed the plunger launching the ball even when it wasn't resting on the launch pad. |
+| 2.2.0 | Added a vertical wall sealing the left side of the plunger launch lane so the ball no longer slips past the pad and drains. |
+| 2.3.0 | Fixed the anti-stick guard never firing, which let the ball settle forever in the valley between an active flipper and the wall. |
+| 2.4.0 | Added continuous background music: the MIDI is rendered against the SoundFont with TinySoundFont and played on loop via SFML. |
+| 2.5.0 | Added procedural sound effects: short blips for the plunger, bumpers, walls, flippers and ball drain, synthesised from a tiny note language. |
+| 2.6.0 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
+| 2.7.0 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
+| 2.8.0 | Added a full game menu (New Game / Options / Exit) with per-category volume sliders and an Escape-to-pause overlay, plus `tools/text2mid` and the `mel` note language used to author the in-game theme (`assets/sounds/flipper_fever.mid`). |
+| 2.9.0 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
+| 2.10.0 | Added a random coin pickup that appears on the open playfield, awards 2000 points, redirects the ball and vanishes on collection. |
 
 ### v1.2 (2026-09-03)
 
@@ -460,6 +466,10 @@ G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8
   plate *down*, which the closed limit blocks, so an in-play ball can no longer
   roll back onto the plunger. New balls are now placed straight onto the plunger
   pad instead of being dropped down the channel. Art: `assets/valve.svg`.
+
+### v2.10.0
+
+- **Coin pickups.** A gold coin now randomly appears on the open playfield, giving a fresh target to chase. Spawn timing, position and lifetime are all randomised: a coin shows up every 8-10 s (random), at a spot chosen by rejection sampling so it never overlaps a wall, flipper or bumper - it only appears inside the region the ball can actually reach - and lasts 5-6 s (random) before vanishing on its own. Hitting it with the ball does three things: it awards 2000 points, it launches the ball off in a *random* direction at *any* angle, and it imparts the same speed the ball would gain from a flipper-tip swing (reused from `Flipper::peakTipSpeed`), so the coin feels like a small, rewarding bump rather than a static bonus. The coin is removed the instant it is collected, so the ball can never score it twice as it rebounds off neighbouring objects. A static Box2D circle carries the collision so the ball genuinely strikes it, and a fresh `coin.svg` art asset feeds the texture atlas (sound: `ball_hit_coin`).
 
 ## License
 

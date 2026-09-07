@@ -30,6 +30,11 @@ public:
     const sf::Vector2f& bodyA() const { return mPivot; }
     const sf::Vector2f& bodyB() const { return mTip; }
 
+    // Peak linear speed (px/s) of the flipper tip during an active swing:
+    // the angular swing speed times the flipper length. Used as the reference
+    // speed the coin imparts to the ball ("as if hit by the flipper tip").
+    float peakTipSpeed() const;
+
     // Box2D body driving the flipper's swing (kinematic). Updated each physics
     // step so the solver transfers the flipper's momentum to the ball.
     b2BodyId bodyId = b2_nullBodyId;

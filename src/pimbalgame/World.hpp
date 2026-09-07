@@ -6,11 +6,13 @@
 
 #include <memory>
 #include <optional>
+#include <random>
 #include <vector>
 
 #include "pimbalgame/Ball.hpp"
 #include "pimbalgame/Flipper.hpp"
 #include "pimbalgame/Bumper.hpp"
+#include "pimbalgame/Coin.hpp"
 #include "pimbalgame/Particles.hpp"
 #include "pimbalgame/Textures.hpp"
 #include "pimbalgame/SoundEffect.hpp"
@@ -72,10 +74,27 @@ private:
     // and the anti-stick nudge that keeps the ball off a held flipper.
     void applyFlipperEffects();
 
+    // Coin pickup: place a new coin on a random valid spot on the playfield,
+    // age it, and despawn it once it has lived its full duration.
+    void spawnCoin();
+    void updateCoin(float dt);
+    // Whether `p` is a safe spot for the coin: inside the walls and clear of
+    // every wall segment, flipper, bumper and the launch channel / flap.
+    bool validSpawn(sf::Vector2f p) const;
+
     Ball mBall;
     std::vector<Wall> mWalls;
     std::vector<std::unique_ptr<Flipper>> mFlippers;
     std::vector<std::unique_ptr<Bumper>> mBumpers;
+
+    // Coin pickup. Constructed at (0,0) and inactive; a real coin is placed on
+    // a random valid spot by spawnCoin() and despawned after its life elapses.
+    Coin mCoin;
+    float mCoinSpawnTimer = 0.0f;    // countdown until the next coin appears
+    float mFlipperTipSpeed = 0.0f;   // reference kick speed the coin imparts
+
+    // Randomness for the coin's spawn timing, position and redirect angle.
+    std::mt19937 mRng{ std::random_device{}() };
 
     // Box2D simulation. Geometry (walls, flippers, bumpers, plunger) is expressed
     // in meters; the game logic and rendering stay in pixels. See kPpm.

@@ -86,6 +86,14 @@ sf::Vector2f Flipper::surfaceVelocity(const sf::Vector2f& contact) const
     return sf::Vector2f(-mAngularVelocity * r.y, mAngularVelocity * r.x);
 }
 
+// Peak linear speed of the tip during a full swing. The flipper advances at a
+// constant kSwingSpeed (rad/s) while active, so the tip sweeps at that angular
+// speed over the full length; the product is the tip's linear speed.
+float Flipper::peakTipSpeed() const
+{
+    return kSwingSpeed * mLength;
+}
+
 void Flipper::recompute()
 {
     mTip = mPivot + sf::Vector2f(std::cos(mAngle), std::sin(mAngle)) * mLength;

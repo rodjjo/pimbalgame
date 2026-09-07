@@ -129,6 +129,22 @@ namespace
     // apart from the ball (kBallTag) and bumpers (Bumper*).
     static const int kFlapTag = 1;
 
+    // --- Coin pickup ---------------------------------------------------------
+    // A coin randomly appears on the open playfield, lasts a few seconds, and
+    // on contact awards points, redirects the ball to a random direction at the
+    // flipper-tip speed, then disappears. Pixels.
+    constexpr float kCoinRadius = 20.f;         // coin collision radius
+    constexpr int kCoinScore = 2000;              // points awarded on hit
+    constexpr float kCoinMinLife = 5.0f;        // shortest coin lifetime
+    constexpr float kCoinMaxLife = 6.0f;        // longest coin lifetime
+    constexpr float kCoinMinSpawn = 8.0f;       // shortest gap between coins
+    constexpr float kCoinMaxSpawn = 10.0f;      // longest gap between coins
+    constexpr float kCoinPad = 18.f;            // clearance kept from walls/objects
+
+    // Distinct marker for the coin's Box2D body so contact handling can tell it
+    // apart from the ball (kBallTag), the flap (kFlapTag) and bumpers (Bumper*).
+    static const int kCoinTag = 2;
+
     // --- pixel <-> meter helpers ---
     inline b2Vec2 toM(sf::Vector2f p) { return b2Vec2{ p.x / kPpm, p.y / kPpm }; }
     inline b2Vec2 toM(float x, float y) { return b2Vec2{ x / kPpm, y / kPpm }; }
@@ -189,6 +205,22 @@ World::World(int /*windowWidth*/, int /*windowHeight*/)
     mWorld = b2CreateWorld(&worldDef);
 
     buildTable();
+
+    // The coin imparts the flipper tip's peak linear speed when the ball hits
+    // it ("the same speed it would gain if it was hit by the tip of the
+    // flipper"). Use the fastest flipper so the kick is a fair reference.
+    for (const auto& f : mFlippers)
+    {
+        mFlipperTipSpeed = std::max(mFlipperTipSpeed, f->peakTipSpeed());
+    }
+    if (mFlipperTipSpeed <= 0.0f)
+    {
+        mFlipperTipSpeed = kFlipperLength * 12.0f;  // safety fallback (rad/s * px)
+    }
+
+    // First coin appears after a random 8..10 s (the "appears every 8-10s").
+    std::uniform_real_distribution<float> spawnDist(kCoinMinSpawn, kCoinMaxSpawn);
+    mCoinSpawnTimer = spawnDist(mRng);
 
     mPlungerY = kPlungerRestY;
 
@@ -310,8 +342,11 @@ void World::update(float dt)
     processContacts();
     applyFlipperEffects();
 
-    // Push any velocity changes (bumper kicks / anti-stick) back into the body.
+    // Push any velocity changes (bumper kicks / anti-stick / coin redirect) back
+    // into the body.
     b2Body_SetLinearVelocity(mBallBody, toM(mBall.velocity));
+
+    updateCoin(dt);
 
     checkDrain();
 
@@ -348,6 +383,12 @@ void World::render(sf::RenderWindow& window) const
     for (auto& f : mFlippers)
     {
         f->render(window, mTextures);
+    }
+
+    // The pickup coin (if one is currently alive).
+    if (mCoin.active())
+    {
+        mCoin.render(window, mTextures);
     }
 
     // Ball halo (behind the ball), the ball itself, then trailing sparks.
@@ -663,6 +704,43 @@ void World::processContacts()
             continue;
         }
 
+        // Ball <-> coin: award points, redirect the ball to a random direction
+        // at the flipper-tip speed, and flash the coin. Gated by the coin's
+        // flash cooldown so a single contact cannot score / redirect twice.
+        const bool hitCoin = (ua == (void*)&kBallTag && ub == (void*)&kCoinTag) ||
+                             (ub == (void*)&kBallTag && ua == (void*)&kCoinTag);
+        if (hitCoin)
+        {
+            if (mCoin.active() && !mCoin.isFlashing())
+            {
+                const sf::Vector2f diff = mBall.position - mCoin.position();
+                const float dist = diff.length();
+                // A genuine contact: the ball's centre is about radius+ballRadius
+                // from the coin centre. Guard against a stray far match.
+                if (dist <= mCoin.radius() + mBall.radius + 2.0f && dist >= 1e-6f)
+                {
+                    // Same speed as a flipper-tip hit, but forced to a random
+                    // direction at any angle.
+                    const float speed = mFlipperTipSpeed;
+                    std::uniform_real_distribution<float> angDist(-kPi, kPi);
+                    const float ang = angDist(mRng);
+                    mBall.velocity = sf::Vector2f(std::cos(ang), std::sin(ang)) * speed;
+
+                    mCoin.hit();
+                    mScore += kCoinScore;
+                    if (mSound)
+                    {
+                        mSound->play("ball_hit_coin");
+                    }
+                    // Burst of gold sparks at the contact point.
+                    const sf::Vector2f contact = mBall.position - diff / dist * mBall.radius;
+                    mParticles.emitBurst(contact, 12, sf::Color(255, 215, 120),
+                                         sf::Color(255, 160, 40), 60.f, 220.f, 0.4f, 1.4f, 4.0f);
+                }
+            }
+            continue;
+        }
+
         // Only ball <-> bumper contacts carry a non-null, non-ball user data.
         Bumper* bumper = nullptr;
         if (ua == (void*)&kBallTag && ub != nullptr && ub != (void*)&kBallTag)
@@ -829,6 +907,110 @@ void World::updatePlunger(float dt)
         }
     }
     mPrevPlungerHeld = mPlungerHeld;
+}
+
+// ---------------------------------------------------------------------------
+// Coin pickup
+// ---------------------------------------------------------------------------
+bool World::validSpawn(sf::Vector2f p) const
+{
+    // The coin must sit inside the playfield and clear of every interactive
+    // element so it never touches a wall, flipper or bumper. The distance from
+    // `p` to the nearest point of each segment / the centre of each shape must
+    // exceed the coin radius plus a clearance pad.
+    const float minDist = kCoinRadius + kCoinPad;
+
+    // Walls (this also clears the coin off every internal wall and guide).
+    for (const auto& w : mWalls)
+    {
+        if ((ClosestPointOnSegment(p, w.a, w.b) - p).length() < minDist)
+        {
+            return false;
+        }
+    }
+
+    // Flippers: their collision box is centred on the pivot->tip centre-line, so
+    // offset by half the flipper thickness to reach the box surface.
+    const float flipMin = kFlipperThickness * 0.5f + minDist;
+    for (const auto& f : mFlippers)
+    {
+        if ((ClosestPointOnSegment(p, f->bodyA(), f->bodyB()) - p).length() < flipMin)
+        {
+            return false;
+        }
+    }
+
+    // Bumpers.
+    for (const auto& b : mBumpers)
+    {
+        if ((p - b->position()).length() < b->radius() + minDist)
+        {
+            return false;
+        }
+    }
+
+    // Keep the coin off the one-way flap plate's sweep near the channel mouth.
+    const sf::Vector2f flapDelta = p - sf::Vector2f(kFlapHingeX, kFlapHingeY);
+    if (flapDelta.length() < kFlapLength * 0.5f + minDist)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void World::spawnCoin()
+{
+    // Rejection-sample a point inside the open playfield. The rightmost lane
+    // (x >= kChannelLeft) is the plunger launch channel -- the ball only reaches
+    // it on a launch, so the coin never spawns there or behind the flap. The
+    // rounded arc bounds the top; the wall-distance check clears it.
+    const float r = kCoinRadius;
+    const float pad = r + kCoinPad;
+    const float x0 = kLeft + pad;
+    const float x1 = kChannelLeft - pad;
+    const float y0 = kTop + pad + 60.f;          // clear of the arc's top corners
+    const float y1 = kFloorY - pad - 40.f;       // clear of the drain gap
+
+    sf::Vector2f chosen{kChannelCenterX, 400.f};
+    for (int attempt = 0; attempt < 600; ++attempt)
+    {
+        std::uniform_real_distribution<float> xDist(x0, x1);
+        std::uniform_real_distribution<float> yDist(y0, y1);
+        const sf::Vector2f p(xDist(mRng), yDist(mRng));
+        if (validSpawn(p))
+        {
+            chosen = p;
+            break;
+        }
+    }
+
+    mCoin = Coin(chosen, r);
+    std::uniform_real_distribution<float> lifeDist(kCoinMinLife, kCoinMaxLife);
+    mCoin.setLife(lifeDist(mRng));
+    mCoin.create(mWorld);
+    mCoin.setUserData((void*)&kCoinTag);
+}
+
+void World::updateCoin(float dt)
+{
+    if (mCoin.active())
+    {
+        mCoin.update(dt);
+        if (mCoin.isExpired() || mCoin.isCollected())
+        {
+            mCoin.destroy();
+        }
+        return;
+    }
+
+    mCoinSpawnTimer -= dt;
+    if (mCoinSpawnTimer <= 0.0f)
+    {
+        spawnCoin();
+        std::uniform_real_distribution<float> spawnDist(kCoinMinSpawn, kCoinMaxSpawn);
+        mCoinSpawnTimer = spawnDist(mRng);
+    }
 }
 
 void World::checkDrain()

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
+  <!-- gold pickup coin: dark rim, golden face, star mark, highlight -->
+  <!-- outer rim -->
+  <circle cx="30" cy="30" r="27" fill="#7a4e00"/>
+  <circle cx="30" cy="30" r="25.5" fill="#b8860b"/>
+  <!-- golden face -->
+  <circle cx="30" cy="30" r="20.5" fill="#ffd23f"/>
+  <circle cx="30" cy="30" r="20.5" fill="none" stroke="#e0b400" stroke-width="1.8"/>
+  <!-- embossed star -->
+  <polygon points="30,22 31.88,27.41 37.61,27.53 33.04,30.99 34.7,36.47 30,33.2 25.3,36.47 26.96,30.99 22.39,27.53 28.12,27.41"
+           fill="#d59e0a"/>
+  <polygon points="30,23.4 31.56,27.66 36.06,27.75 32.62,30.66 33.98,35.13 30,32.45 26.02,35.13 27.38,30.66 23.94,27.75 28.44,27.66"
+           fill="#ffe88a"/>
+  <!-- specular highlight -->
+  <ellipse cx="20.5" cy="20.5" rx="8" ry="5" fill="#ffffff" opacity="0.45"
+           transform="rotate(-30 20.5 20.5)"/>
+</svg>
