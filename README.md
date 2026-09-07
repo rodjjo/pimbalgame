@@ -486,6 +486,10 @@ G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8
 
 - **`text2mid` multi-voice melodies.** The theme synthesiser now writes melodies with **up to four independent voices** (1-4). Each voice loops its own phrase on its *own* timeline and plays in parallel with the others, like the separate channels of a real multi-track MIDI file — voices are neither sequential nor round-robin, so a fast and a slow voice overlap freely. A voice is started with `voice <1-4>` (or `v <1-4>`), and its instrument is set with `program <name>` (aliases `prog` / `inst`), either by name (`piano`, `guitar`, `bass`, `strings`, `flute`, `lead`, `drums`, ...) or by a raw MIDI program number (0-127). `drums` is routed to the MIDI drum channel (ch. 10), where the game's renderer already enables drum-kit mode. The default instruction is unchanged, so existing single-voice themes are byte-for-byte identical. See [tools/text2mid.md](tools/text2mid.md) for the full `mel` grammar.
 
+### v2.12.0
+
+- **`mid2ogg` render a MIDI into a loopable sound file.** The new `tools/mid2ogg` tool turns a Standard MIDI File (`.mid`) into an Ogg Vorbis sound file (`.ogg`). A MIDI file only contains notes, so the tool *plays it back* against a SoundFont (`.sf2`) with TinySoundFont — the same playback path the game uses in `src/pimbalgame/Music.cpp` — and encodes the captured PCM with SFML's Ogg Vorbis writer. To make the result loop with no dead air, the captured PCM is analysed from both ends (RMS energy over short windows) and everything below an audible threshold is trimmed, so the file starts and ends on real audio instead of the instruments' decaying/reverb tail. Usage: `mid2ogg --save-path my-sound.ogg --mid-path my-sound.mid` (add `--soundfont-path <in.sf2>` to render against a different SoundFont). Its full documentation lives in [tools/mid2ogg.md](tools/mid2ogg.md).
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
