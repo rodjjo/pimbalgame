@@ -4,12 +4,17 @@
 //
 // The tool is completely self-contained: it needs only the C++ standard
 // library and links against nothing external. It parses the instruction
-// string into note events, repeats the phrase until the file is a comfortable
-// background-music length (20 s by default) and writes a format-0 Standard
-// MIDI File that SFML's TinySoundFont playback path renders against a sound
-// font.
+// string into one or more independent note voices, repeats every voice to fill
+// the requested file length and writes a format-0 Standard MIDI File that
+// SFML's TinySoundFont playback path renders against a sound font.
+//
+// A melody has up to four *independent* voices. Each voice runs on its OWN
+// timeline (its own cursor and loop length) and plays in parallel with the
+// others, exactly like the separate channels of a real multi-track MIDI file:
+// they are neither sequential nor round-robin.
 // ---------------------------------------------------------------------------
 
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -24,11 +29,21 @@
 namespace
 {
     // -----------------------------------------------------------------------
-    // The "mel" melody language
+    // The "mel" note language.
     //
-    // The instruction is a whitespace- and comma-separated stream of tokens.
-    // The recognised tokens are:
+    // The instruction is a whitespace- / comma- / pipe-separated stream of
+    // tokens. The recognised tokens are:
     //
+    //   Voice    "voice <1-4>" or "v <1-4>" starts (or switches to) an
+    //            independent voice. Notes that follow belong to it until the
+    //            next voice token or "end". Defaults to voice 1.
+    //   Program  "program <name|num>" (aka "prog"/"inst") sets the instrument
+    //            of the *current* voice, either by a recognised name (see the
+    //            list below) or by a raw MIDI program number (0-127). An
+    //            instrument name may also be written right after the voice tag
+    //            as a shorthand: "v1 piano C4 E4". The default instrument is a
+    //            synth lead (program 74). "drums" is placed on the MIDI drums
+    //            channel (ch. 10) and rendered as a drum kit.
     //   Note     one of the letters A-G, an optional run of '#' (sharps) or
     //            'b' (flats), an optional single-digit octave (0-9, default 4).
     //            Examples: C, C#, Fb, B4, e5.
@@ -55,6 +70,9 @@ namespace
     constexpr int kDefaultOctave = 4;
     constexpr uint32_t kTicksPerBeat = 480;  // MIDI pulses per quarter note
     constexpr double kDefaultDurationMs = 20.0;
+    constexpr int kMaxVoices = 4;
+    constexpr int kDrumChannel = 9;  // MIDI ch. 10 (zero-based 9) is the drum kit
+    constexpr uint8_t kDefaultProgram = 74;
 
     // A scheduled note: absolute position (ticks), the key, velocity and the
     // note length (ticks). A chord is emitted as several of these sharing a
@@ -65,6 +83,19 @@ namespace
         uint8_t key = 0;
         uint8_t velocity = 0;
         uint32_t length = 0;
+    };
+
+    // An independent musical voice: its own note stream, its own phrase length
+    // (cursor) and its own instrument. The channel is assigned when the file is
+    // written.
+    struct Voice
+    {
+        std::vector<NoteEvent> notes;
+        uint32_t cursor = 0;   // phrase length in ticks (sum of note lengths)
+        uint32_t tokens = 0;   // note tokens seen (drives velocity breathing)
+        int program = static_cast<int>(kDefaultProgram);
+        bool isDrums = false;
+        int channel = -1;      // assigned at emit time
     };
 
     // Note-letter semitone offsets within an octave (C=0 ... B=11).
@@ -238,11 +269,99 @@ namespace
         return !keys.empty() || sawRest;
     }
 
+    // Return true if the token could be parsed as a note/chord/rest.
+    bool isNoteLike(const std::string& tok)
+    {
+        std::vector<uint8_t> keys;
+        uint32_t length = 0;
+        return parseToken(tok, kDefaultOctave, keys, length);
+    }
+
+    // A named MIDI instrument. `drums` marks the kit (played on channel 9).
+    struct Program
+    {
+        const char* name;
+        int program;
+        bool drums;
+    };
+
+    // A small, sensible subset of General-Music programs plus "drums". A raw
+    // number (0-127) is also accepted by resolveProgram.
+    const Program kPrograms[] = {
+        {"piano", 0, false},         {"acousticpiano", 0, false},
+        {"electricpiano", 4, false}, {"electricgrandpiano", 4, false}, {"rh", 4, false},
+        {"organ", 8, false},         {"churchorgan", 8, false},
+        {"guitar", 24, false},       {"guitaracoustic", 24, false}, {"acousticguitar", 24, false},
+        {"guitarnylon", 25, false},  {"nylonguitar", 25, false},
+        {"guitarjazz", 26, false},   {"jazzguitar", 26, false},
+        {"guitarsteel", 29, false},  {"electrichuitar", 29, false}, {"electriguitar", 29, false},
+        {"bass", 33, false},         {"bassfinger", 33, false}, {"bassacoustic", 33, false},
+        {"basspick", 34, false},     {"synthbass", 38, false},
+        {"violin", 40, false},
+        {"cello", 43, false},
+        {"harp", 46, false},
+        {"strings", 48, false},
+        {"staccato", 49, false},
+        {"choir", 52, false},        {"voiceooh", 52, false},
+        {"trumpet", 56, false},
+        {"sax", 65, false},          {"sopranosax", 65, false},
+        {"flute", 73, false},        {"tinflute", 73, false},
+        {"lead", 80, false},         {"synthlead", 80, false},
+        {"pad", 88, false},
+        {"matrix", 89, false},
+        // Drum kit: played on the MIDI drums channel (9).
+        {"drums", 0, true},          {"drum", 0, true},
+        {"percussion", 0, true},     {"perc", 0, true}, {"kit", 0, true},
+    };
+
+    std::string toLower(const std::string& s)
+    {
+        std::string r = s;
+        for (char& c : r)
+        {
+            c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
+        return r;
+    }
+
+    // Resolve an instrument name (or a raw program number) to a MIDI program.
+    // `drumsOut` is set when a drum-kit instrument was requested. Returns -1 if
+    // nothing matched.
+    int resolveProgram(const std::string& rawName, bool& drumsOut)
+    {
+        drumsOut = false;
+        const std::string n = toLower(rawName);
+        if (n.empty())
+        {
+            return -1;
+        }
+        for (const Program& p : kPrograms)
+        {
+            if (std::string(p.name) == n)
+            {
+                drumsOut = p.drums;
+                return p.program;
+            }
+        }
+        int v = 0;
+        if (parseInt(n, v) && v >= 0 && v <= 127)  // raw MIDI program number
+        {
+            return v;
+        }
+        return -1;
+    }
+
+    void setVoiceProgram(Voice& v, int program, bool drums)
+    {
+        v.program = program;
+        v.isDrums = drums;
+    }
+
     void printUsage()
     {
         std::cout <<
             "text2mid - synthesise a Standard MIDI File from a melody written in the\n"
-            "'mel' note language.\n"
+            "'mel' note language (up to 4 independent voices).\n"
             "\n"
             "Usage:\n"
             "  text2mid --save-path <out.mid> [--instruction \"<melody>\"]\n"
@@ -257,22 +376,29 @@ namespace
             "  -?, --help              Show this help.\n"
             "\n"
             "The 'mel' language (tokens separated by spaces / commas):\n"
-            "  Note    [A-G] [#..|b..] [0-9]   C, C#, Fb, B4, e5      (C4 == MIDI 60)\n"
-            "  Rest    r  or  -\n"
-            "  Chord   C+E+G                    sounds together\n"
+            "  Voice    voice <1-4> | v <1-4>    start/switch an independent voice\n"
+            "  Program  program <name|num> | prog | inst   set current voice's\n"
+            "                               instrument (name or raw MIDI number).\n"
+            "                               'drums' uses the drum kit (ch. 10).\n"
+            "  Note     [A-G] [#..|b..] [0-9]   C, C#, Fb, B4, e5      (C4 == MIDI 60)\n"
+            "  Rest     r  or  -\n"
+            "  Chord    C+E+G                    sounds together\n"
             "  Duration /denominator           /1 whole, /2 half, /4 quarter (default),\n"
             "                                  /8 eighth, /16 sixteenth\n"
-            "  Tempo   tempo <bpm> | bpm <bpm>\n"
-            "  Octave  o <0-9>   | octave <0-9>\n"
+            "  Tempo    tempo <bpm> | bpm <bpm>\n"
+            "  Octave   o <0-9>   | octave <0-9>\n"
             "  Bar     |   (ignored)   End   end | ;\n"
             "\n"
-            "Example:\n"
-            "  text2mid --save-path theme.mid --instruction\n"
-            "           \"tempo 110 C4/4 E4/4 G4/4 B4/4 | C5/2 B4/2\"\n";
+            "Each voice runs on its OWN timeline and plays in parallel with the others\n"
+            "(independent loops, not sequential / not round-robin). Named instruments:\n"
+            "  piano, electricPiano, organ, guitar, guitarNylon, guitarSteel, guitarJazz,\n"
+            "  bass, bassPick, synthBass, violin, cello, harp, strings, staccato, choir,\n"
+            "  trumpet, sax, flute, lead, pad, matrix, drums\n";
     }
 
     // The default theme, used when --instruction is not supplied. A short,
-    // looping, major-key phrase that sits comfortably under a sound font.
+    // looping, major-key phrase that sits comfortably under a sound font. Kept
+    // as a single-voice instruction for backward compatibility.
     const char* kDefaultInstruction =
         "tempo 104 "
         "E5/8 G5/8 A5/8 C6/8 B5/8 G5/8 E5/8 D5/8 "
@@ -283,7 +409,7 @@ namespace
         "C5/2 G4/4 r/4";
 
     // -----------------------------------------------------------------------
-    // Standard MIDI File (format 0, single track) writer.
+    // Standard MIDI File (format 0, single track, up to 4 channels) writer.
     // -----------------------------------------------------------------------
 
     // Encode a delta time as a MIDI variable-length quantity (7-bit groups,
@@ -313,14 +439,30 @@ namespace
         std::vector<uint8_t> bytes;  // status/data, no delta prefix
     };
 
-    // Build the full MIDI byte stream: header + one track. The phrase is
-    // repeated to fill `targetTicks`, then a final note-off burst and an
-    // end-of-track message close the file off at the target length.
-    std::vector<uint8_t> buildMidi(const std::vector<NoteEvent>& baseNotes,
-                                   uint32_t baseLenTicks, uint32_t targetTicks,
-                                   uint8_t program, uint32_t bpm)
+    // Build the full MIDI byte stream: header + one track. Every voice repeats
+    // its own phrase to fill `targetTicks`, then a final note-off burst and an
+    // end-of-track message close the file off at the target length. Each voice
+    // gets its own MIDI channel (0..3, or 9 for drums) and program, so the
+    // voices are genuinely independent and play in parallel.
+    std::vector<uint8_t> buildMidi(std::vector<Voice>& voices,
+                                   uint32_t targetTicks, uint32_t bpm)
     {
-        const uint32_t cap = targetTicks > 0 ? targetTicks : baseLenTicks;
+        // Assign a channel per voice: drums on the kit channel, the rest on
+        // successive melodic channels 0, 1, 2, ... (all distinct).
+        int melodicRank = 0;
+        for (Voice& v : voices)
+        {
+            if (v.isDrums)
+            {
+                v.channel = kDrumChannel;
+            }
+            else
+            {
+                v.channel = melodicRank++;
+            }
+        }
+
+        const uint32_t cap = targetTicks > 0 ? targetTicks : kTicksPerBeat;
 
         std::vector<RawMessage> raw;
 
@@ -335,8 +477,9 @@ namespace
             m.bytes.insert(m.bytes.end(), text.begin(), text.end());
             raw.push_back(std::move(m));
         };
-        meta(0x03, "text2mid");   // description
-        meta(0x0F, "PimBalGame theme");  // track name
+        meta(0x03, "text2mid");
+        meta(0x0F, voices.size() == 1 ? "PimBalGame theme"
+                                      : "PimBalGame multi-voice theme");
 
         // meta: set tempo. Microseconds per quarter note = 60,000,000 / bpm.
         const uint32_t microPerBeat =
@@ -353,37 +496,53 @@ namespace
             raw.push_back(std::move(m));
         }
 
-        // program change: channel 0, chosen instrument (a bright lead).
+        // program change per voice, on its channel.
+        for (const Voice& v : voices)
         {
             RawMessage m;
             m.tick = 0;
-            m.bytes.push_back(0xC0 | (program & 0x0F));
-            m.bytes.push_back(program & 0x7F);
+            m.bytes.push_back(0xC0 | (static_cast<uint8_t>(v.channel) & 0x0F));
+            m.bytes.push_back(static_cast<uint8_t>(v.program & 0x7F));
             raw.push_back(std::move(m));
         }
 
-        // Notes, repeated to fill the target length. A note that starts at or
-        // after the cut is dropped; a note crossing the cut is clipped at cap.
-        bool capReached = false;
-        for (uint32_t global = 0; !capReached; global += baseLenTicks)
+        // Notes. Each voice repeats its own phrase on its own timeline, so
+        // voices overlap freely (independent loops, not sequential).
+        for (Voice& v : voices)
         {
-            for (const NoteEvent& n : baseNotes)
+            if (v.notes.empty())
             {
-                const uint32_t start = global + n.tick;
-                if (start >= cap)
+                continue;
+            }
+            const uint32_t baseLen = v.cursor > 0 ? v.cursor : kTicksPerBeat;
+            const uint8_t chByte = static_cast<uint8_t>(v.channel) & 0x0F;
+            for (uint32_t global = 0; global < cap; global += baseLen)
+            {
+                bool reached = false;
+                bool any = false;
+                for (const NoteEvent& n : v.notes)
                 {
-                    capReached = true;
+                    const uint32_t start = global + n.tick;
+                    if (start >= cap)
+                    {
+                        reached = true;  // this voice has been filled past the cut
+                        break;
+                    }
+                    const uint32_t end = std::min<uint32_t>(cap, start + n.length);
+                    RawMessage on;
+                    on.tick = start;
+                    on.bytes = {static_cast<uint8_t>(0x90 | chByte), n.key, n.velocity};  // note-on
+                    raw.push_back(on);
+                    RawMessage off;
+                    off.tick = end;
+                    off.bytes = {static_cast<uint8_t>(0x80 | chByte), n.key, 0x40};       // note-off
+                    raw.push_back(off);
+                    any = true;
+                }
+                if (reached || !any)
+                {
                     break;
                 }
-                const uint32_t end = std::min<uint32_t>(cap, start + n.length);
-                RawMessage on;
-                on.tick = start;
-                on.bytes = {0x90, n.key, n.velocity};  // note-on, channel 0
-                raw.push_back(on);
-                RawMessage off;
-                off.tick = end;
-                off.bytes = {0x80, n.key, 0x40};      // note-off, channel 0
-                raw.push_back(off);
             }
         }
 
@@ -396,7 +555,7 @@ namespace
         }
 
         // Stable-sort by absolute tick so messages at the same tick keep their
-        // insertion order (meta/program first, notes in sequence, eot last).
+        // insertion order (meta/programs first, notes in sequence, eot last).
         std::stable_sort(raw.begin(), raw.end(),
                          [](const RawMessage& a, const RawMessage& b)
                          { return a.tick < b.tick; });
@@ -475,45 +634,152 @@ namespace
 
         std::vector<std::string> tokens = tokenize(instruction);
 
-        std::vector<NoteEvent> notes;
-        int octave = kDefaultOctave;
-        uint32_t cursor = 0;  // ticks into the phrase
-        const int velocityBase = 90;
-        int voice = 0;
+        Voice voices[kMaxVoices];
+        for (int i = 0; i < kMaxVoices; ++i)
+        {
+            voices[i].program = static_cast<int>(kDefaultProgram);
+        }
+        Voice* cur = &voices[0];  // voice 1 is the default
 
-        for (std::size_t i = 0; i < tokens.size(); ++i)
+        int octave = kDefaultOctave;
+        std::vector<Voice> active;  // voices that actually got a note
+
+        std::size_t i = 0;
+        while (i < tokens.size())
         {
             const std::string& tok = tokens[i];
-            if (tok == "tempo" || tok == "bpm")
+
+            // A voice start: "voice"/"v" (number on the next token), or a
+            // compact form with the number attached, e.g. "v1" / "voice2".
+            const std::string lt = toLower(tok);
+            int vn = -1;
+            bool numberAttached = false;
+            if (lt == "voice" || lt == "v")
+            {
+                // the number comes from the following token
+            }
+            else if (lt.size() > 1 && lt[0] == 'v' &&
+                     std::isdigit(static_cast<unsigned char>(lt[1])))
+            {
+                int tmp = 0;
+                if (parseInt(lt.substr(1), tmp)) vn = tmp;
+                numberAttached = true;
+            }
+            else if (lt.size() > 5 && lt.compare(0, 5, "voice") == 0 &&
+                     std::isdigit(static_cast<unsigned char>(lt[5])))
+            {
+                int tmp = 0;
+                if (parseInt(lt.substr(5), tmp)) vn = tmp;
+                numberAttached = true;
+            }
+
+            if (lt == "voice" || lt == "v" || numberAttached)
+            {
+                // Resolve the voice number. It is either embedded in the token
+                // ("v1" / "voice2") or carried on the following token
+                // ("voice 1" / "v 1").
+                if (!numberAttached)
+                {
+                    if (i + 1 >= tokens.size() ||
+                        !parseInt(tokens[i + 1], vn) || vn < 1 || vn > 4)
+                    {
+                        std::cerr << "warning: voice expects a voice number 1-4\n";
+                        ++i;  // move past the bare voice keyword
+                        continue;
+                    }
+                }
+                else if (vn < 1 || vn > 4)
+                {
+                    std::cerr << "warning: voice expects a voice number 1-4\n";
+                    ++i;  // move past the "vN" / "voiceN" token
+                    continue;
+                }
+
+                cur = &voices[vn - 1];
+                // Consume the voice keyword (+ number), plus an optional
+                // shorthand instrument written right after it, e.g.
+                // "v1 piano C4 E4" or "voice 2 drums ...". The explicit
+                // program/prog/inst keyword is left for its own branch.
+                const std::size_t afterVoice = numberAttached ? i + 1 : i + 2;
+                std::size_t next = afterVoice;
+                if (next < tokens.size())
+                {
+                    const std::string& nx = tokens[next];
+                    const std::string nxl = toLower(nx);
+                    if (nxl != "program" && nxl != "prog" && nxl != "inst" && !isNoteLike(nx))
+                    {
+                        bool drums = false;
+                        int prog = resolveProgram(nx, drums);
+                        if (prog >= 0)
+                        {
+                            cur->program = prog;
+                            cur->isDrums = drums;
+                            next++;
+                        }
+                        else
+                        {
+                            std::cerr << "warning: unknown instrument \"" << nx << "\"\n";
+                        }
+                    }
+                }
+                i = next;
+                continue;
+            }
+            if (tok == "program" || tok == "prog" || tok == "inst")
             {
                 if (i + 1 >= tokens.size())
                 {
-                    std::cerr << "warning: " << tok << " expects a bpm value\n";
+                    std::cerr << "warning: " << tok << " expects an instrument name\n";
                     continue;
                 }
-                int v = 0;
-                if (parseInt(tokens[++i], v) && v > 0)
+                bool drums = false;
+                int prog = resolveProgram(tokens[i + 1], drums);
+                if (prog >= 0)
                 {
-                    bpm = v;
+                    setVoiceProgram(*cur, prog, drums);
+                    ++i;
                 }
+                else
+                {
+                    std::cerr << "warning: unknown instrument \"" << tokens[i + 1] << "\"\n";
+                }
+                ++i;  // consume the "program" keyword too
                 continue;
             }
             if (tok == "o" || tok == "octave")
             {
                 if (i + 1 >= tokens.size())
                 {
+                    ++i;
                     continue;
                 }
                 int v = 0;
-                if (parseInt(tokens[++i], v) && v >= 0 && v <= 9)
+                if (parseInt(tokens[i + 1], v) && v >= 0 && v <= 9)
                 {
                     octave = v;
                 }
+                i += 2;  // consume "o"/"octave" and the value
                 continue;
             }
             if (tok == "end" || tok == ";")
             {
                 break;
+            }
+            if (tok == "tempo" || tok == "bpm")
+            {
+                if (i + 1 >= tokens.size())
+                {
+                    std::cerr << "warning: " << tok << " expects a bpm value\n";
+                    ++i;
+                    continue;
+                }
+                int v = 0;
+                if (parseInt(tokens[i + 1], v) && v > 0)
+                {
+                    bpm = v;
+                }
+                i += 2;  // consume "tempo"/"bpm" and the value
+                continue;
             }
 
             std::vector<uint8_t> keys;
@@ -521,34 +787,43 @@ namespace
             if (!parseToken(tok, octave, keys, length))
             {
                 std::cerr << "warning: skipping unrecognized token \"" << tok << "\"\n";
+                ++i;
                 continue;
             }
 
-            // Velocity gently oscillates so the line breathes.
+            // Velocity gently oscillates per note token so the line breathes.
+            cur->tokens++;
             const uint8_t velocity =
-                static_cast<uint8_t>((velocityBase + ((voice % 6) * 3)) & 0x7F);
+                static_cast<uint8_t>((90 + ((cur->tokens - 1) % 6) * 3) & 0x7F);
 
             for (uint8_t key : keys)
             {
                 NoteEvent ne;
-                ne.tick = cursor;
+                ne.tick = cur->cursor;
                 ne.key = key;
                 ne.velocity = velocity;
                 ne.length = length;
-                notes.push_back(ne);
+                cur->notes.push_back(ne);
             }
-            cursor += length;
-            ++voice;
+            cur->cursor += length;
+            ++i;
         }
 
-        if (notes.empty())
+        for (int i = 0; i < kMaxVoices; ++i)
+        {
+            if (!voices[i].notes.empty())
+            {
+                active.push_back(voices[i]);
+            }
+        }
+
+        if (active.empty())
         {
             std::cerr << "error: no notes could be parsed from the instruction\n";
             return false;
         }
 
-        const uint32_t baseLenTicks = cursor > 0 ? cursor : kTicksPerBeat;
-        const std::vector<uint8_t> midi = buildMidi(notes, baseLenTicks, targetTicks, 74, bpm);
+        const std::vector<uint8_t> midi = buildMidi(active, targetTicks, static_cast<uint32_t>(bpm));
 
         std::ofstream file(outPath, std::ios::binary);
         if (!file)
@@ -565,8 +840,14 @@ namespace
         }
 
         std::cout << "wrote " << outPath.string() << " (" << midi.size()
-                  << " bytes, " << notes.size() << " notes, " << bpm << " bpm, "
+                  << " bytes, " << active.size() << " voices, " << bpm << " bpm, "
                   << static_cast<int>(durationMs / 1000.0) << " s)\n";
+        for (const Voice& v : active)
+        {
+            std::cout << "  voice on channel " << (v.channel & 0x0F)
+                      << (v.isDrums ? " (drums)" : "") << ", program " << v.program
+                      << ", " << v.notes.size() << " notes\n";
+        }
         return true;
     }
 }  // namespace

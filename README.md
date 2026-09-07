@@ -273,6 +273,7 @@ in the release notes.
 | 2.8.0 | Added a full game menu (New Game / Options / Exit) with per-category volume sliders and an Escape-to-pause overlay, plus `tools/text2mid` and the `mel` note language used to author the in-game theme (`assets/sounds/flipper_fever.mid`). |
 | 2.9.0 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
 | 2.10.0 | Added a random coin pickup that appears on the open playfield, awards 2000 points, redirects the ball and vanishes on collection. |
+| 2.11.0 | `text2mid` now writes melodies with **up to 4 independent voices** (1–4). Each voice runs on its own timeline and plays in parallel (like the separate channels of a real MIDI file — not sequential, not round-robin) and can use a different named instrument. See [tools/text2mid.md](tools/text2mid.md). |
 
 ### v1.2.0
 
@@ -470,6 +471,10 @@ G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8
 ### v2.10.0
 
 - **Coin pickups.** A gold coin now randomly appears on the open playfield, giving a fresh target to chase. Spawn timing, position and lifetime are all randomised: a coin shows up every 8-10 s (random), at a spot chosen by rejection sampling so it never overlaps a wall, flipper or bumper - it only appears inside the region the ball can actually reach - and lasts 5-6 s (random) before vanishing on its own. Hitting it with the ball does three things: it awards 2000 points, it launches the ball off in a *random* direction at *any* angle, and it imparts the same speed the ball would gain from a flipper-tip swing (reused from `Flipper::peakTipSpeed`), so the coin feels like a small, rewarding bump rather than a static bonus. The coin is removed the instant it is collected, so the ball can never score it twice as it rebounds off neighbouring objects. A static Box2D circle carries the collision so the ball genuinely strikes it, and a fresh `coin.svg` art asset feeds the texture atlas (sound: `ball_hit_coin`).
+
+### v2.11.0
+
+- **`text2mid` multi-voice melodies.** The theme synthesiser now writes melodies with **up to four independent voices** (1-4). Each voice loops its own phrase on its *own* timeline and plays in parallel with the others, like the separate channels of a real multi-track MIDI file — voices are neither sequential nor round-robin, so a fast and a slow voice overlap freely. A voice is started with `voice <1-4>` (or `v <1-4>`), and its instrument is set with `program <name>` (aliases `prog` / `inst`), either by name (`piano`, `guitar`, `bass`, `strings`, `flute`, `lead`, `drums`, ...) or by a raw MIDI program number (0-127). `drums` is routed to the MIDI drum channel (ch. 10), where the game's renderer already enables drum-kit mode. The default instruction is unchanged, so existing single-voice themes are byte-for-byte identical. See [tools/text2mid.md](tools/text2mid.md) for the full `mel` grammar.
 
 ## License
 

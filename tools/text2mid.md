@@ -50,6 +50,60 @@ The instruction is a whitespace- / comma- / pipe-separated stream of tokens.
 | Bar      | `|` (cosmetic separator, ignored)                                  | `C E | G B`        |
 | End      | `end` or `;` — stops parsing; trailing tokens are dropped          | `... G4 end`       |
 
+### Voices
+
+A melody may contain **up to four independent voices**. Each voice is started
+with a `voice` / `v` token followed by a number 1–4, and every note that
+follows belongs to it — until the next voice token or `end`. Notes written
+before any voice token belong to **voice 1**.
+
+```
+tempo 120
+v1 guitar  E4  G4  B4  E5
+v2 drums   R   R   R   R
+v3 piano   C5  A4  G4  E4
+v4 bass    E2  G2  B2  E3
+end
+```
+
+Each voice is **completely independent**: it runs on its **own timeline** (its
+own cursor and its own loop length) and plays **in parallel** with the others —
+exactly like the separate channels of a real multi-track MIDI file. Voices are
+*not* sequential and *not* round-robin: a fast voice and a slow voice loop at
+their own rates at the same time.
+
+**Instruments.** A voice's instrument is chosen with `program <name|num>`
+(aliases `prog`, `inst`), or as a shorthand right after the voice tag (`v1
+piano ...`). Instruments may be given by name or by a raw MIDI program number
+(0–127). The default instrument is a synth lead (program 74). Supported names:
+
+```
+piano, electricPiano, organ, guitar, guitarNylon, guitarSteel, guitarJazz,
+bass, bassPick, synthBass, violin, cello, harp, strings, staccato, choir,
+trumpet, sax, flute, lead, pad, matrix, drums
+```
+
+**Drums.** `drums` (also `drum`, `percussion`, `perc`, `kit`) is routed to the
+MIDI drum channel (channel 10 / zero-based channel 9, the game's drum-kit
+channel) and rendered as a drum kit. Melodic voices get successive channels
+0, 1, 2, 3.
+
+### Example
+
+A four-voice arrangement:
+
+```
+tempo 120
+v1 guitar  E4/8 G4/8 B4/8 E5/8  D5/8 B4/8 G4/8 E4/8
+v2 drums   R/4 R/4 R/4 R/4      (drum hits on the kit channel)
+v3 piano   C5/2 A4/2
+v4 bass    E2/4 G2/8 B2/8 E3/4
+end
+```
+
+This writes a format-0, single-track Standard MIDI File on channels 0–3 (drums
+on channel 9), each voice looping independently.
+
 ### Note naming
 
 A note's MIDI key is
@@ -78,23 +132,13 @@ A `/` suffix sets the note length in *beats* (`beats = 4 / denominator`):
 
 The default (no suffix) is a quarter note.
 
-### Example
-
-```
-tempo 110
-C4/4 E4/4 G4/4 B4/4 | C5/2 B4/2 A4/4
-G4/8 B4/8 D5/8 G5/8 F5/8 D5/8 B4/8 G4/8
-E4 r/4 end
-```
-
-This writes a format-0, single-track Standard MIDI File on channel 0 using a
-bright lead program — the same path the game renders against its sound font.
-
 ## How the game uses it
 
 The generated MIDI is copied next to the executable at build time (see
 `src/CMakeLists.txt`) and played continuously. `Music.cpp` loads the SoundFont
 (`assets/sounds/sound_file.sf2`) and the MIDI, replays the MIDI against the
-SoundFont with TinySoundFont, caches the rendered 16-bit PCM, and hands it to
-SFML to loop. The menu's **Music** / **General** sliders drive the playback
-volume. See the project [README](../README.md#release-notes) release notes.
+SoundFont with TinySoundFont (dispatching program / note-on / note-off per
+channel, so the independent voices play together), caches the rendered 16-bit
+PCM, and hands it to SFML to loop. The menu's **Music** / **General** sliders
+drive the playback volume. See the project [README](../README.md#release-notes)
+release notes.
