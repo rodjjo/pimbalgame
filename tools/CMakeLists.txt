@@ -6,3 +6,4 @@
 # ---------------------------------------------------------------------------
 add_subdirectory(svg2png)
 add_subdirectory(text2mid)
+add_subdirectory(mid2ogg)

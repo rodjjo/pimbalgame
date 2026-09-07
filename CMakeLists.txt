@@ -85,10 +85,11 @@ endif()
 # ---------------------------------------------------------------------------
 # Tools
 #
-# Developer tools (currently: svg2png) are built only when -DBUILD_TOOLS=ON.
-# They rely on the CImg and lodepng submodules under dependencies/.
+# Developer tools (svg2png, text2mid, mid2ogg) are built only when
+# -DBUILD_TOOLS=ON. They rely on the CImg and lodepng submodules under
+# dependencies/, plus TinySoundFont and SFML for the audio tools.
 # ---------------------------------------------------------------------------
-option(BUILD_TOOLS "Build developer tools (svg2png)" ON)
+option(BUILD_TOOLS "Build developer tools (svg2png, text2mid, mid2ogg)" ON)
 if(BUILD_TOOLS)
     add_subdirectory(tools)
 endif()

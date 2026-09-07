@@ -112,10 +112,18 @@ pimbalgame/
 │   └── fonts/
 │       └── DejaVuSans.ttf  # Bundled HUD font (copied next to the executable)
 ├── tools/
-│   └── svg2png/            # svg2png: SVG→PNG rasterizer + texture-atlas packer
+│   ├── svg2png/            # SVG→PNG rasterizer + texture-atlas packer
+│   │   ├── CMakeLists.txt
+│   │   ├── main.cpp
+│   │   └── svg2png.md      # Full tool documentation (usage, modes, options)
+│   ├── text2mid/           # Melody (mel language) → Standard MIDI File (.mid)
+│   │   ├── CMakeLists.txt
+│   │   ├── main.cpp
+│   │   └── text2mid.md
+│   └── mid2ogg/            # MIDI (.mid) → audio (.ogg), rendered via a SoundFont
 │       ├── CMakeLists.txt
 │       ├── main.cpp
-│       └── svg2png.md      # Full tool documentation (usage, modes, options)
+│       └── mid2ogg.md      # Full tool documentation (usage, options)
 ├── .gitignore
 └── README.md
 ```
@@ -251,11 +259,12 @@ is copied next to the executable by the build so it can be located at runtime.
 
 The game's developer tools are documented alongside their sources:
 [`tools/svg2png`](tools/svg2png.md) turns the project's SVG art into PNG
-textures and packs them into an embeddable C++ texture atlas, and
+textures and packs them into an embeddable C++ texture atlas,
 [`tools/text2mid`](tools/text2mid.md) synthesises a Standard MIDI File from a
-melody written in the project's own "mel" note language. Their full documentation
-(usage, options, language) lives in those two files; the tools are summarised here
-in the release notes.
+melody written in the project's own "mel" note language, and
+[`tools/mid2ogg`](tools/mid2ogg.md) renders a MIDI file into an Ogg Vorbis
+sound using a SoundFont. Their full documentation (usage, options, language)
+lives in those files; the tools are summarised here in the release notes.
 
 | Version | Summary |
 | ------- | ------- |
@@ -274,6 +283,7 @@ in the release notes.
 | 2.9.0 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
 | 2.10.0 | Added a random coin pickup that appears on the open playfield, awards 2000 points, redirects the ball and vanishes on collection. |
 | 2.11.0 | `text2mid` now writes melodies with **up to 4 independent voices** (1–4). Each voice runs on its own timeline and plays in parallel (like the separate channels of a real MIDI file — not sequential, not round-robin) and can use a different named instrument. See [tools/text2mid.md](tools/text2mid.md). |
+| 2.12.0 | Added `tools/mid2ogg`, which renders a Standard MIDI File into an Ogg Vorbis (`.ogg`) sound file by playing it back against a SoundFont with TinySoundFont (the same path the game uses) and encoding the result with SFML. See [tools/mid2ogg.md](tools/mid2ogg.md). |
 
 ### v1.2.0
 
