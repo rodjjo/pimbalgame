@@ -266,6 +266,7 @@ in the release notes.
 | 2.6     | 2026-09-03 | Dropped the flipper pivots 10px below the adjacent wall so a ball rolling down the wall lands on the top of the resting flipper body instead of wedging in the pivot corner. |
 | 2.7     | 2026-09-04 | Fixed a resting flipper that kept imparting speed to the ball after being moved once: the kinematic body retained a residual spin, so the idle flipper now acts as a true static wall. |
 | 2.8     | 2026-09-04 | Added a full game menu (New Game / Options / Exit) with per-category volume sliders and an Escape-to-pause overlay, plus `tools/text2mid` and the `mel` note language used to author the in-game theme (`assets/sounds/flipper_fever.mid`). |
+| 2.9     | 2026-09-06 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
 
 ### v1.2 (2026-09-03)
 
@@ -445,6 +446,20 @@ The `svg2png` tool is built only when the project is configured with
       --instruction "tempo 132 E2/8 E2/8 E2/16 E2/16 B1/8 A2/8 A2/16 A2/16 C3/8 B2/8 \
 G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
     ```
+
+### v2.9 (2026-09-06)
+
+- **One-way flap valve on the launch channel.** A metal valve plate now closes the
+  mouth of the launch channel (the gap above the end of the channel's left wall,
+  at x=540 / y=480) all the way up to the right rail. The plate is hinged at its
+  lower end on the wall's top endpoint — the wall ends exactly at the valve pivot
+  — and it can only swing open *upward*, out of the channel. A launched ball meets
+  its underside at a shallow angle and slides up over it, pushing the plate open
+  with almost no resistance; gravity seats it shut again the moment the ball
+  passes. Anything later trying to fall back down into the channel presses the
+  plate *down*, which the closed limit blocks, so an in-play ball can no longer
+  roll back onto the plunger. New balls are now placed straight onto the plunger
+  pad instead of being dropped down the channel. Art: `assets/valve.svg`.
 
 ## License
 

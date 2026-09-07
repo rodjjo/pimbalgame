@@ -80,11 +80,54 @@ namespace
     // swinging it would impart nothing).
     constexpr float kMinLaunchSpeed = 300.f;
     constexpr float kBallSpawnX = 565.f;
-    constexpr float kBallSpawnY = 340.f;
+    // The valve closes the channel mouth, so a new ball cannot drop in from
+    // above; it is seated on the plunger pad (rest pad top 835, ball radius 9).
+    constexpr float kBallSpawnY = 825.f;
 
     constexpr float kWallTexW = 72.f;
     constexpr float kWallTexH = 16.f;
     constexpr float kWallThickness = 8.f;      // visual rail thickness (px)
+
+    // --- One-way flap valve across the mouth of the launch channel ---------
+    // The launch channel is the vertical lane x in [kChannelLeft, kChannelRight]
+    // on the right edge. Its left wall (x = kChannelLeft) ends at y = 480, so
+    // the lane's mouth toward the table is that gap above the wall's top end:
+    // a launched ball rises out through it, and any ball that later falls back
+    // through it funnels straight onto the plunger. The valve is a plate hinged
+    // at its lower end on top of the wall below -- the wall's top endpoint
+    // (kChannelLeft, 480) IS the valve pivot -- that lies diagonally across the
+    // mouth up to the right rail, closing the mouth entirely. The joint only
+    // lets the plate swing further up (out of the lane): the rising ball meets
+    // its underside at a glancing angle, slides along it and pushes it open as
+    // it launches; gravity then seats it shut again, and anything pressing the
+    // plate DOWN (a return toward the launcher) meets the closed limit instead
+    // -- a one-way gate that keeps in-play balls out of the channel. Pixels.
+    constexpr float kFlapHingeX = kChannelLeft;   // top end of the wall below
+    constexpr float kFlapHingeY = 480.f;          // the valve pivot
+    constexpr float kFlapLength = 150.f;          // reaches from the pivot to the rail
+    constexpr float kFlapThickness = 12.f;        // plate thickness (px)
+    constexpr float kFlapDensity = 0.15f;         // light so the ball swings it open
+    constexpr float kFlapFriction = 0.05f;        // low: the ball slides over it
+
+    // Plate angles (world radians; plate local +x runs along the plate from the
+    // hinge end). At rest the plate leans ~70 deg up toward the rail end, so a
+    // rising launch ball strikes its underside at a shallow angle and slides up
+    // over it while the plate swings open. Gravity presses the free end down
+    // onto the closed seat (the upper limit); the plate can only swing open
+    // further upward from there, never down into the lane.
+    constexpr float kFlapRestAngle = -1.2217f;           // ~-70 deg (70 deg up)
+    constexpr float kFlapMaxAngle = kFlapRestAngle;              // closed seat
+    constexpr float kFlapMinAngle = kFlapRestAngle - 0.85f;      // swings open up
+    constexpr float kFlapSpringHertz = 5.0f;
+    constexpr float kFlapDampingRatio = 0.9f;
+
+    constexpr float kValveTexW = 80.f;
+    constexpr float kValveTexH = 16.f;
+    constexpr float kValveHingeTexX = 2.f;       // texel x of the plate's hinge end
+
+    // Distinct marker for the flap's Box2D body so contact handling can tell it
+    // apart from the ball (kBallTag) and bumpers (Bumper*).
+    static const int kFlapTag = 1;
 
     // --- pixel <-> meter helpers ---
     inline b2Vec2 toM(sf::Vector2f p) { return b2Vec2{ p.x / kPpm, p.y / kPpm }; }
@@ -292,6 +335,9 @@ void World::render(sf::RenderWindow& window) const
         drawWall(window, w.a, w.b, mTextures);
     }
 
+    // One-way flap valve at the channel mouth.
+    renderFlap(window);
+
     // Plunger pad.
     renderPlunger(window, mPlungerY, mCharge, mTextures);
 
@@ -316,6 +362,51 @@ void World::renderBackground(sf::RenderWindow& window) const
     {
         window.draw(*mSkull);
     }
+}
+
+void World::renderFlap(sf::RenderWindow& window) const
+{
+    if (!mFlapBody.index1)
+    {
+        return;
+    }
+
+    // The plate's hinge-end lower corner (its pivot, on the wall's top end) is
+    // fixed by the revolute joint; recover its world point from the live pose
+    // so the sprite always pivots where the physics plate does.
+    const b2Transform tf = b2Body_GetTransform(mFlapBody);
+    const float c = tf.q.c;
+    const float s = tf.q.s;
+    const float halfT = kFlapThickness * 0.5f / kPpm;
+    const sf::Vector2f hinge = toPx(b2Body_GetPosition(mFlapBody)) +
+                               sf::Vector2f(-s * halfT, c * halfT) * kPpm;
+    const float ang = b2Rot_GetAngle(tf.q);
+
+    if (mTextures.loaded())
+    {
+        sf::Sprite plate = mTextures.get("valve");
+        // Origin at the plate's hinge-end lower corner (the pivot): rotation r
+        // maps the sprite's +x axis to (cos r, sin r) in world pixels, like the
+        // physics plate whose local +x runs along it from the hinge corner.
+        plate.setOrigin(sf::Vector2f(kValveHingeTexX, kValveTexH));
+        plate.setPosition(hinge);
+        plate.setRotation(sf::radians(ang));
+        plate.setScale(sf::Vector2f(kFlapLength / kValveTexW, kFlapThickness / kValveTexH));
+        window.draw(plate);
+    }
+
+    // Hinge pin drawn over the pivot on the wall's top end: a dark disc + bore.
+    sf::CircleShape outer(7.f);
+    outer.setOrigin(sf::Vector2f(7.f, 7.f));
+    outer.setPosition(hinge);
+    outer.setFillColor(sf::Color(58, 67, 90));
+    window.draw(outer);
+
+    sf::CircleShape bore(3.f);
+    bore.setOrigin(sf::Vector2f(3.f, 3.f));
+    bore.setPosition(hinge);
+    bore.setFillColor(sf::Color(29, 35, 48));
+    window.draw(bore);
 }
 
 // ---------------------------------------------------------------------------
@@ -400,6 +491,69 @@ void World::buildTable()
         b2Polygon pad = b2MakeBox(hw, hh);
         b2ShapeId shape = b2CreatePolygonShape(mPlungerBody, &pshapeDef, &pad);
         b2Shape_SetRestitution(shape, 0.0f);
+    }
+
+    // One-way flap valve across the mouth of the launch channel. The plate is
+    // hinged at its hinge-end lower corner, which sits exactly on the wall's
+    // top endpoint (kFlapHingeX, kFlapHingeY) = the valve pivot, and leans up
+    // across the mouth to the right rail. The joint only lets it swing further
+    // upward (out of the channel): the launched ball meets its underside at a
+    // glancing angle and slides up over it as it opens, gravity seats it shut,
+    // and any ball pressing the plate downward (a return toward the launcher)
+    // meets the closed limit instead.
+    {
+        const float cosA = std::cos(kFlapRestAngle);
+        const float sinA = std::sin(kFlapRestAngle);
+
+        b2BodyDef fdef = b2DefaultBodyDef();
+        fdef.type = b2_dynamicBody;
+        fdef.enableSleep = false;
+        // The plate is hinged at its hinge-end LOWER corner, which sits exactly
+        // on the pivot (the top endpoint of the wall below). Anchoring at that
+        // corner keeps every part of the plate at or above the pivot, so the
+        // wall below can never touch or obstruct the plate and it can swing
+        // fully open over the channel mouth.
+        const float halfT = kFlapThickness * 0.5f / kPpm;
+        const b2Vec2 hingeCorner = b2Vec2{ 0.f, halfT };   // lower corner, local
+        const b2Vec2 worldCorner{
+            cosA * hingeCorner.x - sinA * hingeCorner.y,
+            sinA * hingeCorner.x + cosA * hingeCorner.y
+        };
+        fdef.position = toM(kFlapHingeX, kFlapHingeY) - worldCorner;
+        fdef.rotation = b2MakeRot(kFlapRestAngle);   // closed pose across the mouth
+        mFlapBody = b2CreateBody(mWorld, &fdef);
+        b2Body_SetUserData(mFlapBody, (void*)&kFlapTag);
+
+        b2ShapeDef sdef = b2DefaultShapeDef();
+        sdef.material.friction = kFlapFriction;
+        sdef.material.restitution = 0.0f;
+        sdef.density = kFlapDensity;
+        const float halfL = kFlapLength * 0.5f / kPpm;
+        // Box centred at (halfL, 0) so it spans local x in [0, 2*halfL] = the
+        // plate length, with the hinge end at the body's local x = 0.
+        b2Polygon box = b2MakeOffsetBox(halfL, halfT, b2Vec2{ halfL, 0.f }, b2MakeRot(0.f));
+        b2ShapeId shape = b2CreatePolygonShape(mFlapBody, &sdef, &box);
+        b2Shape_SetRestitution(shape, 0.0f);
+
+        // Hinge to the static wall body at the top of the wall below. Gravity
+        // presses the free end down onto the upper (closed) limit; the lower
+        // limit only allows the plate to swing open upward. The spring helps it
+        // seat crisply at the closed pose and damps the return swing.
+        b2RevoluteJointDef jdef = b2DefaultRevoluteJointDef();
+        jdef.bodyIdA = mWallBody;
+        jdef.bodyIdB = mFlapBody;
+        jdef.localAnchorA = toM(kFlapHingeX, kFlapHingeY);
+        jdef.localAnchorB = hingeCorner;
+        jdef.referenceAngle = 0.f;
+        jdef.enableLimit = true;
+        jdef.lowerAngle = kFlapMinAngle;
+        jdef.upperAngle = kFlapMaxAngle;
+        jdef.enableSpring = true;
+        jdef.hertz = kFlapSpringHertz;
+        jdef.dampingRatio = kFlapDampingRatio;
+        jdef.targetAngle = kFlapRestAngle;
+        jdef.collideConnected = false;
+        mFlapJoint = b2CreateRevoluteJoint(mWorld, &jdef);
     }
 
     // The ball: a dynamic, bullet circle so it cannot tunnel through the
@@ -494,6 +648,20 @@ void World::processContacts()
         const b2BodyId bodyB = b2Shape_GetBody(e.shapeIdB);
         void* const ua = b2Body_GetUserData(bodyA);
         void* const ub = b2Body_GetUserData(bodyB);
+
+        // Ball <-> flap valve: resolved by Box2D only (no kick, no scoring).
+        // Route it out here like any other surface contact, so the bumper
+        // reinterpretation below never mistakes the flap's integer tag for a
+        // Bumper* pointer.
+        if ((ua == (void*)&kBallTag && ub == (void*)&kFlapTag) ||
+            (ub == (void*)&kBallTag && ua == (void*)&kFlapTag))
+        {
+            if (mSound)
+            {
+                mSound->play("ball_hit_wall");
+            }
+            continue;
+        }
 
         // Only ball <-> bumper contacts carry a non-null, non-ball user data.
         Bumper* bumper = nullptr;
@@ -689,11 +857,14 @@ void World::checkDrain()
 
 void World::resetBall()
 {
+    // Seat a fresh ball directly on the plunger pad in the launch channel. The
+    // one-way valve closes the channel mouth, so a ball can no longer drop into
+    // the channel from above: new balls are placed on the pad instead.
     mBall.position = sf::Vector2f(kBallSpawnX, kBallSpawnY);
     mBall.velocity = sf::Vector2f(0.f, 0.f);
 
     // Move the Box2D body to the spawn point and stop it.
-    b2Body_SetTransform(mBallBody, toM(kBallSpawnX, kBallSpawnY), b2MakeRot(0.f));
+    b2Body_SetTransform(mBallBody, toM(mBall.position), b2MakeRot(0.f));
     b2Body_SetLinearVelocity(mBallBody, b2Vec2_zero);
     b2Body_SetAwake(mBallBody, true);
 }

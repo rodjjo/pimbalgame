@@ -59,6 +59,9 @@ private:
     void addBumper(sf::Vector2f position, float radius, int score, float kickSpeed);
     void checkDrain();
     void renderBackground(sf::RenderWindow& window) const;
+    // Draw the one-way flap valve across the channel mouth, pivoted to its live
+    // Box2D pose (hinge at the wall's top end, plate swinging across the mouth).
+    void renderFlap(sf::RenderWindow& window) const;
 
     void updatePlunger(float dt);
 
@@ -80,6 +83,8 @@ private:
     b2BodyId mBallBody = b2_nullBodyId;       // dynamic circle (the pinball)
     b2BodyId mWallBody = b2_nullBodyId;       // static shared body for all walls
     b2BodyId mPlungerBody = b2_nullBodyId;    // kinematic launch pad
+    b2BodyId mFlapBody = b2_nullBodyId;       // dynamic one-way flap valve plate
+    b2JointId mFlapJoint = b2_nullJointId;    // revolute hinge across the channel mouth
 
     // Sub-steps per physics tick. More sub-steps => more stable resolution and
     // less tunneling without changing the fixed outer timestep.
