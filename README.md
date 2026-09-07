@@ -274,7 +274,7 @@ in the release notes.
 | 2.9.0 | Added a one-way flap valve at the top of the launch channel so an in-play ball can never fall back onto the plunger. |
 | 2.10.0 | Added a random coin pickup that appears on the open playfield, awards 2000 points, redirects the ball and vanishes on collection. |
 
-### v1.2 (2026-09-03)
+### v1.2.0
 
 - **Embedded texture atlas for the game.** `assets/*.svg` are now the only
   version-controlled art. At build time the `svg2png` tool rasterizes every SVG
@@ -292,7 +292,7 @@ in the release notes.
 The `svg2png` tool is built only when the project is configured with
 `-DBUILD_TOOLS=ON` (default `ON`), wired through the top-level `CMakeLists.txt`.
 
-### v2.0 (2026-09-03)
+### v2.0.0
 
 - **Box2D physics engine.** The hand-rolled physics loop (custom closest-point
   segment collision, manual impulse reflections and separate ball integration)
@@ -307,7 +307,7 @@ The `svg2png` tool is built only when the project is configured with
   plunger effects run after each physics sub-step. The fixed `1/120 s`
   timestep and 60 FPS render cap are unchanged.
 
-### v2.1 (2026-09-03)
+### v2.1.0
 
 - **Plunger launch fix.** Releasing the plunger no longer flings the ball when it
   is not on the launch pad. Previously the release impulse was applied to the
@@ -317,7 +317,7 @@ The `svg2png` tool is built only when the project is configured with
   just above) the pad, so a real ball must be seated on the plunger to be
   launched — the same flaw existed in the pre-Box2D custom-physics loop.
 
-### v2.2 (2026-09-03)
+### v2.2.0
 
 - **Plunger launch lane sealed on the left.** A vertical wall was added along
   `kChannelLeft` (x=540) from y=700 down to just above the floor (y=865). The
@@ -328,7 +328,7 @@ The `svg2png` tool is built only when the project is configured with
   the plunger and can be launched instead of being lost. Existing walls are
   unchanged; this only adds one segment.
 
-### v2.3 (2026-09-03)
+### v2.3.0
 
 - **Anti-stick guard fixed.** A ball sliding down the guide wall and slowing
   near a held flipper used to settle *permanently* in the valley between the
@@ -343,7 +343,7 @@ The `svg2png` tool is built only when the project is configured with
   ball off the surface as soon as it settles, exactly as intended. The flipper
   pivots were also restored to (200, 825) / (440, 825).
 
-### v2.4 (2026-09-03)
+### v2.4.0
 
 - **Background music.** The game now plays continuous background music. A
   SoundFont (`assets/sounds/sound_file.sf2`) and a MIDI file
@@ -363,7 +363,7 @@ The `svg2png` tool is built only when the project is configured with
   in-tree codec build is needed. If the assets cannot be loaded the game still
   runs, just muted.
 
-### v2.5 (2026-09-03)
+### v2.5.0
 
 - **Procedural sound effects.** In addition to the background music, the game
   now plays short, synthesised blips for gameplay events — plunger pull and
@@ -382,7 +382,7 @@ The `svg2png` tool is built only when the project is configured with
   plunger edge transitions, ball<->bumper/wall/flipper contact events and the
   drain check; `Game` builds the bank and shares it with the `World`.
 
-### v2.7 (2026-09-04)
+### v2.7.0
 
 - **Resting flipper no longer kicks the ball.** A flipper used to keep launching
   the ball even after it was released and left motionless for the rest of the
@@ -401,7 +401,7 @@ The `svg2png` tool is built only when the project is configured with
   momentum is preserved. A falling ball now bounces off a resting flipper like a
   wall, a sliding ball keeps sliding, and only an active swing launches it.
 
-### v2.8 (2026-09-04)
+### v2.8.0
 
 - **Game menu, pause overlay and volume options.** The game now boots into a full
   menu with three real actions — **New Game** starts a fresh game, **Options**
@@ -453,7 +453,7 @@ The `svg2png` tool is built only when the project is configured with
 G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
     ```
 
-### v2.9 (2026-09-06)
+### v2.9.0
 
 - **One-way flap valve on the launch channel.** A metal valve plate now closes the
   mouth of the launch channel (the gap above the end of the channel's left wall,
