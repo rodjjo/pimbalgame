@@ -57,13 +57,11 @@ namespace
     const char* kFontName = "fonts/DejaVuSans.ttf";
     const char* kSourceFontName = "assets/fonts/DejaVuSans.ttf";
 
-    // Background music assets. The SoundFont synthesises the audio and the MIDI
-    // drives it; both live in the game's sound assets and are copied next to the
-    // executable at build time (see src/CMakeLists.txt).
-    const char* kSoundFontName = "sounds/sound_file.sf2";
-    const char* kMidiName = "sounds/flipper_fever.mid";
-    const char* kSourceSoundFontName = "assets/sounds/sound_file.sf2";
-    const char* kSourceMidiName = "assets/sounds/flipper_fever.mid";
+    // Background music asset: an Ogg Vorbis track played on loop. It lives in the
+    // game's sound assets and is copied next to the executable at build time (see
+    // src/CMakeLists.txt).
+    const char* kMusicOggName = "sounds/pinball_pirates.ogg";
+    const char* kSourceMusicOggName = "assets/sounds/pinball_pirates.ogg";
 
     // Find a sound asset, preferring the copy next to the executable and falling
     // back to the source-tree location (useful when run from the project root).
@@ -122,15 +120,13 @@ Game::Game()
 
     // Load and play the background music. Audio failure is non-fatal: the game
     // remains fully playable with muted audio if the assets cannot be loaded.
-    const std::filesystem::path soundFontPath = resolveSoundFile(kSoundFontName, kSourceSoundFontName);
-    const std::filesystem::path midiPath = resolveSoundFile(kMidiName, kSourceMidiName);
-    if (!soundFontPath.empty() && !midiPath.empty())
+    const std::filesystem::path musicPath = resolveSoundFile(kMusicOggName, kSourceMusicOggName);
+    if (!musicPath.empty())
     {
         mMusic = std::make_unique<Music>();
-        if (!mMusic->load(soundFontPath, midiPath))
+        if (!mMusic->load(musicPath))
         {
-            std::cerr << "Failed to load background music (" << soundFontPath << ", "
-                      << midiPath << ")\n";
+            std::cerr << "Failed to load background music (" << musicPath << ")\n";
         }
         else
         {

@@ -73,9 +73,10 @@ add_subdirectory(dependencies/box2d EXCLUDE_FROM_ALL)
 # TinySoundFont dependency (git submodule at dependencies/tiny-sound-font)
 # ---------------------------------------------------------------------------
 # A tiny sound font loader (single-header: tml.h for MIDI input, tsf.h for the
-# sound font). It has no build system of its own and we only need its headers
-# for now; the implementations are pulled in by defining TSF_IMPLEMENTATION /
-# TML_IMPLEMENTATION in one game source file when audio is wired up.
+# sound font). It has no build system of its own; the game plays its background
+# music as a pre-rendered Ogg track (no synthesis at load time) so this
+# submodule is now only needed by the developer tools under tools/ (e.g.
+# mid2ogg).
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tiny-sound-font/tsf.h")
     message(FATAL_ERROR
         "TinySoundFont submodule is not checked out at 'dependencies/tiny-sound-font'.\n"

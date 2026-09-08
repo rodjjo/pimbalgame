@@ -94,7 +94,7 @@ pimbalgame/
 ├── CMakeLists.txt          # Top-level build configuration
 ├── dependencies/
 │   ├── box2d/              # Box2D physics engine (git submodule, pinned v3.1.1)
-│   ├── tiny-sound-font/    # TinySoundFont audio (git submodule, single-header tsf.h/tml.h)
+│   ├── tiny-sound-font/    # TinySoundFont (git submodule, single-header) — used by the mid2ogg tool
 │   └── sfml/               # SFML library (git submodule, built in-tree)
 ├── src/
 │   ├── CMakeLists.txt      # Builds the game executable
@@ -150,8 +150,10 @@ platform's OpenGL / Cocoa / Win32 support.
 | OpenGL           | system OpenGL implementation (Linux: Mesa / GLVND)          |
 | Window system    | X11 (Linux) / Win32 (Windows) / Cocoa (macOS)               |
 
-The project only builds SFML's **System**, **Window** and **Graphics**
-components, so the Network and Audio extras (Libssh2, Vorbis, gsm) are **not**
+In addition to SFML's **System**, **Window** and **Graphics** components, the
+game also links **Audio** to play its background music as a pre-rendered Ogg
+Vorbis track, so the Audio codec extras — **Vorbis**, **FLAC** and **Ogg** (and
+gsm) — are now required. The Network and Libssh2 extras are still **not**
 required.
 
 ### Linux (Debian / Ubuntu) — verified build
@@ -171,6 +173,9 @@ sudo apt install libx11-dev libxi-dev libxrandr-dev libxcursor-dev \
 
 # SFML Graphics text rendering (system Freetype + HarfBuzz)
 sudo apt install libfreetype6-dev libharfbuzz-dev
+
+# SFML Audio (background music: Ogg Vorbis playback) — Ogg / Vorbis / FLAC codecs
+sudo apt install libogg-dev libvorbis-dev libflac-dev
 ```
 
 > Older SFML 2.6 guides also list `libxinerama-dev` and `libxkbcommon-dev`;
@@ -183,11 +188,13 @@ the same):
 # Fedora / RHEL (-devel suffix, Mesa as mesa-libGL-devel)
 sudo dnf install gcc-c++ cmake git \
     libX11-devel libXi-devel libXrandr-devel libXcursor-devel \
-    mesa-libGL-devel libudev-devel freetype-devel harfbuzz-devel
+    mesa-libGL-devel libudev-devel freetype-devel harfbuzz-devel \
+    libogg-devel libvorbis-devel libflac-devel
 
 # Arch Linux (runtime + headers merged; base-devel supplies the compiler)
 sudo pacman -S base-devel cmake git \
-    libx11 libxi libxrandr libxcursor mesa libudev freetype harfbuzz
+    libx11 libxi libxrandr libxcursor mesa libudev freetype harfbuzz \
+    libogg libvorbis flac
 ```
 
 > **Optional:** to avoid installing Freetype / HarfBuzz (and instead let SFML
@@ -197,19 +204,22 @@ sudo pacman -S base-devel cmake git \
 ### macOS
 
 Only a compiler, CMake and Git are needed — SFML fetches Freetype / HarfBuzz
-itself and uses the platform's OpenGL/Cocoa stack (no X11, no extra system
-packages). The simplest path is still Homebrew:
+itself and uses the platform's OpenGL/Cocoa stack (no X11). As the game plays its
+background music with SFML's Audio module now, also install the Ogg Vorbis / FLAC
+codec libraries:
 
 ```bash
-brew install cmake git          # or: brew install sfml  (prebuilt SFML)
+brew install cmake git libogg libvorbis libflac   # or: brew install sfml  (prebuilt SFML)
 ```
 
 ### Windows
 
 Install [Visual Studio 2022](https://visualstudio.microsoft.com/) (the **C++
 desktop development** workload, which provides MSVC) plus CMake and Git. SFML
-fetches the text libraries itself and uses the system OpenGL driver — no extra
-system packages are required.
+fetches the text libraries itself and uses the system OpenGL driver. As the game
+plays its background music with SFML's Audio module, also provide the Ogg Vorbis
+/ FLAC codec libraries (or configure with `-DSFML_USE_SYSTEM_DEPS=OFF` so SFML
+builds its own codecs from source, which needs network access at configure time).
 
 ## Getting started
 
@@ -284,6 +294,7 @@ lives in those files; the tools are summarised here in the release notes.
 | 2.10.0 | Added a random coin pickup that appears on the open playfield, awards 2000 points, redirects the ball and vanishes on collection. |
 | 2.11.0 | `text2mid` now writes melodies with **up to 4 independent voices** (1–4). Each voice runs on its own timeline and plays in parallel (like the separate channels of a real MIDI file — not sequential, not round-robin) and can use a different named instrument. See [tools/text2mid.md](tools/text2mid.md). |
 | 2.12.0 | Added `tools/mid2ogg`, which renders a Standard MIDI File into an Ogg Vorbis (`.ogg`) sound file by playing it back against a SoundFont with TinySoundFont (the same path the game uses) and encoding the result with SFML. See [tools/mid2ogg.md](tools/mid2ogg.md). |
+| 2.13.0 | Replaced the load-time TinySoundFont MIDI→SoundFont synthesis with a pre-rendered Ogg Vorbis background track (`pinball_pirates.ogg`), played directly on loop via SFML. Removed the SoundFont and theme MIDI assets (`sound_file.sf2`, `flipper_fever.mid`, `texas_e_pacific_boogie_woogie_bass.mid`). |
 
 ### v1.2.0
 
@@ -373,6 +384,10 @@ The `svg2png` tool is built only when the project is configured with
   against the system Vorbis/FLAC/Ogg libraries (`SFML_USE_SYSTEM_DEPS=ON`), so no
   in-tree codec build is needed. If the assets cannot be loaded the game still
   runs, just muted.
+
+> _Superseded by [v2.13.0](#v2130): the TinySoundFont synthesis path was removed, so
+> the game no longer needs a SoundFont or a theme MIDI at runtime. The track is now a
+> pre-rendered Ogg Vorbis file — see v2.13.0 for the current implementation._
 
 ### v2.5.0
 
@@ -464,6 +479,10 @@ The `svg2png` tool is built only when the project is configured with
 G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
     ```
 
+> _Retired in [v2.13.0](#v2130): `assets/sounds/flipper_fever.mid` was removed along with the
+> TinySoundFont synthesis path. The game now plays the pre-rendered `pinball_pirates.ogg`, and
+> the `mel` theme above is kept only for reference — `text2mid` still generates it on demand._
+
 ### v2.9.0
 
 - **One-way flap valve on the launch channel.** A metal valve plate now closes the
@@ -488,7 +507,29 @@ G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8
 
 ### v2.12.0
 
-- **`mid2ogg` render a MIDI into a loopable sound file.** The new `tools/mid2ogg` tool turns a Standard MIDI File (`.mid`) into an Ogg Vorbis sound file (`.ogg`). A MIDI file only contains notes, so the tool *plays it back* against a SoundFont (`.sf2`) with TinySoundFont — the same playback path the game uses in `src/pimbalgame/Music.cpp` — and encodes the captured PCM with SFML's Ogg Vorbis writer. To make the result loop with no dead air, the captured PCM is analysed from both ends (RMS energy over short windows) and everything below an audible threshold is trimmed, so the file starts and ends on real audio instead of the instruments' decaying/reverb tail. Usage: `mid2ogg --save-path my-sound.ogg --mid-path my-sound.mid` (add `--soundfont-path <in.sf2>` to render against a different SoundFont). Its full documentation lives in [tools/mid2ogg.md](tools/mid2ogg.md).
+- **`mid2ogg` render a MIDI into a loopable sound file.** The new `tools/mid2ogg` tool turns a Standard MIDI File (`.mid`) into an Ogg Vorbis sound file (`.ogg`). A MIDI file only contains notes, so the tool *plays it back* against a SoundFont (`.sf2`) with TinySoundFont and encodes the captured PCM with SFML's Ogg Vorbis writer. To make the result loop with no dead air, the captured PCM is analysed from both ends (RMS energy over short windows) and everything below an audible threshold is trimmed, so the file starts and ends on real audio instead of the instruments' decaying/reverb tail. Usage: `mid2ogg --save-path my-sound.ogg --mid-path my-sound.mid` (add `--soundfont-path <in.sf2>` to render against a different SoundFont). Its full documentation lives in [tools/mid2ogg.md](tools/mid2ogg.md).
+
+> This tool is independent of the game's background music, which [v2.13.0](#v2130) moved to a
+> pre-rendered Ogg Vorbis track (`pinball_pirates.ogg`). The TinySoundFont→SoundFont path this
+> tool uses is no longer taken by the game itself.
+
+### v2.13.0
+
+- **Background music is now a pre-rendered Ogg track.** The game's background music no longer
+  needs a SoundFont or a MIDI file at runtime: `src/pimbalgame/Music.{hpp,cpp}` now loads the
+  Ogg Vorbis file `assets/sounds/pinball_pirates.ogg` straight into an `sf::SoundBuffer` and
+  plays it on loop through an `sf::Sound`. SFML's Audio module decodes Vorbis natively (it is
+  built against the system Ogg/Vorbis/FLAC libraries), so the load path is a single decode
+  rather than a full render — small and cheap, with no bespoke codec and no synthesis on the
+  audio thread. `Game` resolves the track next to the executable (falling back to
+  `assets/sounds/`), copies it next to the binary at build time, and still starts playback via
+  `Music::play()`; if the file cannot be loaded the game still runs, just muted.
+  - The previous TinySoundFont synthesis path (a SoundFont + theme MIDI replayed against it)
+    was removed **entirely**. The assets `assets/sounds/sound_file.sf2`,
+    `assets/sounds/flipper_fever.mid` and `assets/sounds/texas_e_pacific_boogie_woogie_bass.mid`
+    were deleted, and the `tiny-sound-font` submodule is now used only by the `tools/mid2ogg`
+    developer tool — not by the game. The in-game theme is no longer authored or rendered from
+    `assets/sounds/flipper_fever.mid`.
 
 ## License
 

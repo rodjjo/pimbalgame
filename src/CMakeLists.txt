@@ -18,14 +18,6 @@ add_executable(pimbalgame
 
 target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-# TinySoundFont is a single-header dependency (tsf.h + tml.h) with no build
-# system of its own; expose its root as an include path so the game can #include
-# it. The implementations are pulled in by defining TSF_IMPLEMENTATION /
-# TML_IMPLEMENTATION inside pimbalgame/Music.cpp (the one TU that owns them).
-target_include_directories(pimbalgame PRIVATE
-    "${CMAKE_SOURCE_DIR}/dependencies/tiny-sound-font"
-)
-
 # SFML is built in-tree from the submodule, which exposes the namespaced alias
 # targets SFML::System, SFML::Window, SFML::Graphics and SFML::Audio. Audio is
 # required to feed the cached PCM (rendered by TinySoundFont) to the device.
@@ -157,8 +149,7 @@ target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/fonts/DejaVuSans.ttf
      DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/fonts)
 
-# Copy the background music assets (SoundFont + MIDI) next to the executable so
-# they can be found at runtime (see Game's resolveSoundFile).
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/sound_file.sf2
-     ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/flipper_fever.mid
-      DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sounds)
+# Copy the background music asset (Ogg Vorbis track) next to the executable so it
+# can be found at runtime (see Game's resolveSoundFile).
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/../assets/sounds/pinball_pirates.ogg
+     DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/sounds)

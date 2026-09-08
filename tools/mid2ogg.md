@@ -8,10 +8,11 @@ program changes). To hear it we have to *play it back* against an instrument
 bank (a SoundFont) and record what comes out. `mid2ogg` does exactly that:
 
 1. Loads a SoundFont (`.sf2`) with [TinySoundFont](dependencies/tiny-sound-font)
-   (`tsf.h`) — the same library the game uses.
+   (`tsf.h`).
 2. Loads the MIDI with TinyMIDI (`tml.h`) and replays its messages on a virtual
-   clock, asking TinySoundFont to synthesise the audio. This is the same
-   playback path the game uses in [`src/pimbalgame/Music.cpp`](src/pimbalgame/Music.cpp).
+   clock, asking TinySoundFont to synthesise the audio. This is a standalone
+    render path — independent of the background music the game plays now, which
+    is a pre-rendered Ogg track (see the v2.13.0 release note in the README).
 3. Captures the interleaved 16-bit / 44.1 kHz PCM and hands it to **SFML**,
    which encodes and writes it directly to an Ogg Vorbis (`.ogg`) file.
 
