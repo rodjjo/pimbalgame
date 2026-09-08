@@ -300,6 +300,7 @@ lives in those files; the tools are summarised here in the release notes.
 | 2.11.0 | `text2mid` now writes melodies with **up to 4 independent voices** (1–4). Each voice runs on its own timeline and plays in parallel (like the separate channels of a real MIDI file — not sequential, not round-robin) and can use a different named instrument. See [tools/text2mid.md](tools/text2mid.md). |
 | 2.12.0 | Added `tools/mid2ogg`, which renders a Standard MIDI File into an Ogg Vorbis (`.ogg`) sound file by playing it back against a SoundFont with TinySoundFont (the same path the game uses) and encoding the result with SFML. See [tools/mid2ogg.md](tools/mid2ogg.md). |
 | 2.13.0 | Replaced the load-time TinySoundFont MIDI→SoundFont synthesis with a pre-rendered Ogg Vorbis background track (`pinball_pirates.ogg`), played directly on loop via SFML. Removed the SoundFont and theme MIDI assets (`sound_file.sf2`, `flipper_fever.mid`, `texas_e_pacific_boogie_woogie_bass.mid`). |
+| 2.14.0 | Reworked the ball contact sound effects into realistic metallic impacts parameterised by impact speed: a broadband noise "crack" plus inharmonic, exponentially-decaying partials, so harder hits ring brighter and longer. Tonal note-language blips are kept for the plunger and ball drain. |
 
 ### v1.2.0
 
@@ -551,6 +552,31 @@ The `svg2png` tool is built only when the project is configured with
     were deleted, and the `tiny-sound-font` submodule is now used only by the `tools/mid2ogg`
     developer tool — not by the game. The in-game theme is no longer authored or rendered from
     `assets/sounds/flipper_fever.mid`.
+
+### v2.14.0
+
+- **Ball contact sounds are now realistic metallic impacts, parameterised by impact speed.**
+  Before this release every effect was a short melodic blip written in the project's note
+  language, so the ball vs. bumper / wall / flipper / coin contacts rang out as fixed musical
+  notes. The contact effects now read as struck metal. Each strike is synthesised on the fly as
+  a short broadband noise **"crack"** (one-pole low-passed so it is a "tock", not white-hiss)
+  summed with several **inharmonic, exponentially-decaying partials** — the way a steel plate or
+  bell sounds, where the higher modes decay fastest and the hit rings down from bright to dull.
+- **Impact speed drives the character.** `World` now passes the ball's speed at contact
+  (`mBall.velocity.length()`) to a new `SoundEffect::play(name, impactSpeed)` overload. The speed
+  scales the pitch, brightness, number of partials, ring length and overall level: a gentle tap
+  sounds dull and short, a hard hit rings bright and long, and the ball **attenuates** with the
+  energy of the strike instead of playing a single fixed note. Each of the four surfaces has its
+  own `SoundEffect::MetallicConfig` (base frequency, frequency sweep, brightness, decay, level,
+  noise gain and partial count) so a bumper, wall, flipper and coin each keep a distinct metal
+  voice, tuned inline in the `SoundEffect` constructor.
+- **Tonal blips are kept where they belong.** The plunger pull/release and the ball-drain sounds
+  remain the melodic note-language effects, so their character is unchanged.
+- **The playback architecture is untouched.** Effects are still rendered into PCM and queued onto
+  the small bounded work queue; two worker threads drain it and play in parallel on the shared
+  SFML audio device, each owning its own private voice bank. Impact effects are rendered per hit
+  on the worker thread (no synthesis on the main loop) and reloaded into the next voice's buffer,
+  so the hot path stays lock-free.
 
 ## License
 
