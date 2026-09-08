@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-04
 - **Severity:** Medium (gameplay-correctness, not a crash)
-- **Component:** `src/pimbalgame/Flipper.{hpp,cpp}`, Box2D kinematic-body driving in `src/pimbalgame/World.cpp`
+- **Component:** `src/pinballgame/Flipper.{hpp,cpp}`, Box2D kinematic-body driving in `src/pinballgame/World.cpp`
 - **Fixed in:** v2.7
 
 ## Symptom
@@ -75,7 +75,7 @@ the whole game.
 
 Reset the flipper Box2D body's velocity to zero whenever it has settled at its
 target angle, so a stationary flipper is a genuine static wall. The reset lives
-in `Flipper::update()` in `src/pimbalgame/Flipper.cpp`, gated on the same
+in `Flipper::update()` in `src/pinballgame/Flipper.cpp`, gated on the same
 condition that already indicates a settled flipper — `mAngularVelocity == 0.0f`
 (is only `0.0f` when `prev == mAngle == mTargetAngle`) — and guarded against an
 unconstructed body (`bodyId.index1 != 0`, following the id-null convention that

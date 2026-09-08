@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-namespace pimbalgame
+namespace pinballgame
 {
 // A lightweight additive-blended particle system used for the ball's visual
 // flair: a soft halo that glows brighter as the ball speeds up, a comet-like
@@ -81,4 +81,4 @@ private:
     std::vector<Particle> mParticles;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

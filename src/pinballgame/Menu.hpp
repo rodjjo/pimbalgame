@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace pimbalgame
+namespace pinballgame
 {
 // Shared audio settings. The game owns one of these and applies it to the real
 // music/sfx playback sources; the menu reads and mutates it in place so a volume
@@ -136,7 +136,7 @@ private:
     std::vector<Slider> mSliders;
 
     // Visual elements.
-    sf::Text mTitle;          // "PimBalGame" (main) / "Options" / "Paused"
+    sf::Text mTitle;          // "PinballGame" (main) / "Options" / "Paused"
     sf::Text mMarker;         // ">" selection marker
     std::vector<sf::Text> mMainItems;
     std::vector<sf::Vector2f> mMainItemPos;
@@ -161,4 +161,4 @@ private:
     static constexpr float kWheelScale = 120.0f;  // SFML wheel delta per notch
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

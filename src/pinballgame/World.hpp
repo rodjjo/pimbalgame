@@ -9,15 +9,15 @@
 #include <random>
 #include <vector>
 
-#include "pimbalgame/Ball.hpp"
-#include "pimbalgame/Flipper.hpp"
-#include "pimbalgame/Bumper.hpp"
-#include "pimbalgame/Coin.hpp"
-#include "pimbalgame/Particles.hpp"
-#include "pimbalgame/Textures.hpp"
-#include "pimbalgame/SoundEffect.hpp"
+#include "pinballgame/Ball.hpp"
+#include "pinballgame/Flipper.hpp"
+#include "pinballgame/Bumper.hpp"
+#include "pinballgame/Coin.hpp"
+#include "pinballgame/Particles.hpp"
+#include "pinballgame/Textures.hpp"
+#include "pinballgame/SoundEffect.hpp"
 
-namespace pimbalgame
+namespace pinballgame
 {
 // A single straight wall segment of the playfield.
 struct Wall
@@ -134,4 +134,4 @@ private:
     std::shared_ptr<SoundEffect> mSound;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

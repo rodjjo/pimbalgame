@@ -1,7 +1,7 @@
-#include "pimbalgame/Game.hpp"
-#include "pimbalgame/Music.hpp"
-#include "pimbalgame/SoundEffect.hpp"
-#include "pimbalgame/World.hpp"
+#include "pinballgame/Game.hpp"
+#include "pinballgame/Music.hpp"
+#include "pinballgame/SoundEffect.hpp"
+#include "pinballgame/World.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -13,7 +13,7 @@
 #include <unistd.h>
 #endif
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -86,7 +86,7 @@ namespace
 }
 
 Game::Game()
-    : mWindow(sf::VideoMode({kWindowWidth, kWindowHeight}), "PimBalGame",
+    : mWindow(sf::VideoMode({kWindowWidth, kWindowHeight}), "PinballGame",
               sf::Style::Titlebar | sf::Style::Close)
 {
     mWindow.setFramerateLimit(60);
@@ -385,4 +385,4 @@ void Game::updateHud()
                                             kWindowHeight / 2 - 20.f));
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

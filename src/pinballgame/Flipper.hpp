@@ -4,7 +4,7 @@
 
 #include "box2d/box2d.h"
 
-namespace pimbalgame
+namespace pinballgame
 {
 class Textures;
 
@@ -63,4 +63,4 @@ private:
     sf::Vector2f mTip;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

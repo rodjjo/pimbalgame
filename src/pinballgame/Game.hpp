@@ -6,9 +6,9 @@
 #include <memory>
 #include <optional>
 
-#include "pimbalgame/Menu.hpp"
+#include "pinballgame/Menu.hpp"
 
-namespace pimbalgame
+namespace pinballgame
 {
 class World;
 class Music;
@@ -79,4 +79,4 @@ private:
     std::optional<sf::Text> mStatusText;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

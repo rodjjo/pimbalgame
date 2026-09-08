@@ -1,29 +1,29 @@
 # ---------------------------------------------------------------------------
 # Game executable
 # ---------------------------------------------------------------------------
-add_executable(pimbalgame
+add_executable(pinballgame
     main.cpp
-    pimbalgame/Game.cpp
-    pimbalgame/World.cpp
-    pimbalgame/Ball.cpp
-    pimbalgame/Flipper.cpp
-    pimbalgame/Bumper.cpp
-    pimbalgame/Coin.cpp
-    pimbalgame/Textures.cpp
-    pimbalgame/Particles.cpp
-    pimbalgame/Music.cpp
-    pimbalgame/SoundEffect.cpp
-    pimbalgame/Menu.cpp
+    pinballgame/Game.cpp
+    pinballgame/World.cpp
+    pinballgame/Ball.cpp
+    pinballgame/Flipper.cpp
+    pinballgame/Bumper.cpp
+    pinballgame/Coin.cpp
+    pinballgame/Textures.cpp
+    pinballgame/Particles.cpp
+    pinballgame/Music.cpp
+    pinballgame/SoundEffect.cpp
+    pinballgame/Menu.cpp
 )
 
-target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(pinballgame PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # SFML is built in-tree from the submodule, which exposes the namespaced alias
 # targets SFML::System, SFML::Window, SFML::Graphics and SFML::Audio. Audio is
 # required to feed the cached PCM (rendered by TinySoundFont) to the device.
 # SFML's Audio module is built against the system Vorbis/FLAC/Ogg libraries
 # (SFML_USE_SYSTEM_DEPS), so no extra in-tree codec build is needed.
-target_link_libraries(pimbalgame PRIVATE
+target_link_libraries(pinballgame PRIVATE
     SFML::System
     SFML::Window
     SFML::Graphics
@@ -34,13 +34,13 @@ target_link_libraries(pimbalgame PRIVATE
 # exposes the namespaced alias target box2d::box2d. It is linked here now so the
 # game can use it once the physics code is ported over; a static library that no
 # code references contributes nothing to the link.
-target_link_libraries(pimbalgame PRIVATE
+target_link_libraries(pinballgame PRIVATE
     box2d::box2d
 )
 
 # Keep the console window on Windows when launched from an IDE/Explorer.
 if(WIN32)
-    set_target_properties(pimbalgame PROPERTIES WIN32_EXECUTABLE FALSE)
+    set_target_properties(pinballgame PROPERTIES WIN32_EXECUTABLE FALSE)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ if(TARGET svg2png)
     )
 
     add_custom_target(BuildAtlas DEPENDS ${ATLAS_HEADER})
-    add_dependencies(pimbalgame BuildAtlas)
+    add_dependencies(pinballgame BuildAtlas)
 else()
     # No art tool: provide an empty placeholder so the game still compiles and
     # falls back to procedural shapes. See the README 'Release notes'.
@@ -142,7 +142,7 @@ endif()
 
 # The generated header (textures.cxxpng) is emitted into the build tree and must
 # be findable by `#include "textures.cxxpng"`.
-target_include_directories(pimbalgame PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(pinballgame PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Copy the bundled HUD font next to the executable so it can be found at
 # runtime (see Game::loadFont).

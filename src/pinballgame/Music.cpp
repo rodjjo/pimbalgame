@@ -1,6 +1,6 @@
-#include "pimbalgame/Music.hpp"
+#include "pinballgame/Music.hpp"
 
-namespace pimbalgame
+namespace pinballgame
 {
 Music::Music() = default;
 Music::~Music() = default;
@@ -57,4 +57,4 @@ bool Music::isPlaying() const
 {
     return mValid && mSound && mSound->getStatus() == sf::SoundSource::Status::Playing;
 }
-} // namespace pimbalgame
+} // namespace pinballgame

@@ -24,4 +24,4 @@ def main(paths):
     print(f"total replacements: {changed}")
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ["src/pimbalgame/World.cpp"])
+    main(sys.argv[1:] or ["src/pinballgame/World.cpp"])

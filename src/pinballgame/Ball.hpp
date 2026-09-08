@@ -2,7 +2,7 @@
 
 #include <SFML/Graphics.hpp>
 
-namespace pimbalgame
+namespace pinballgame
 {
 
 class Textures;
@@ -32,4 +32,4 @@ struct Ball
     void render(sf::RenderWindow& window, const Textures& tex) const;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

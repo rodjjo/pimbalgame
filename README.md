@@ -1,4 +1,4 @@
-# PimBalGame
+# PinballGame
 
 A pinball game written in C++17 using the [SFML](https://www.sfml-dev.org/)
 library for graphics, plus a small set of developer tools for building its art
@@ -13,11 +13,16 @@ SFML / Box2D installation or `find_package` step is required. It also ships
 into a single embeddable C++ texture atlas — see
 [tools/svg2png.md](tools/svg2png.md) for its full documentation.
 
-![PimBalGame screenshot](docs/screen.png)
+> **Note (project rename).** This project was renamed from `pimbalgame` to
+> `pinballgame`. All in-game strings, the C++ namespace, the CMake target and
+> executable name (`build/bin/pinballgame`), and the documentation have been
+> updated accordingly.
+
+![PinballGame screenshot](docs/screen.png)
 
 ## How this game was made
 
-PimBalGame was designed and implemented end-to-end by an AI coding agent,
+PinballGame was designed and implemented end-to-end by an AI coding agent,
 [Ornith 1.5 35B-A3B](https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B) — a
 sparse MoE LLM (35B total parameters, ~3B active) — running inside the
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent loop.
@@ -90,7 +95,7 @@ volume sliders, adjusted by scrolling the mouse over a bar or clicking it) and
 ## Project layout
 
 ```
-pimbalgame/
+pinballgame/
 ├── CMakeLists.txt          # Top-level build configuration
 ├── dependencies/
 │   ├── box2d/              # Box2D physics engine (git submodule, pinned v3.1.1)
@@ -99,7 +104,7 @@ pimbalgame/
 ├── src/
 │   ├── CMakeLists.txt      # Builds the game executable
 │   ├── main.cpp            # Program entry point
-│   └── pimbalgame/
+│   └── pinballgame/
 │       ├── Game.hpp/.cpp   # Window, main loop, input, HUD rendering
 │       ├── World.hpp/.cpp  # Playfield geometry, physics, scoring, plunger
 │       ├── Physics.hpp     # Shared geometry helper (closest point on a segment)
@@ -226,8 +231,8 @@ builds its own codecs from source, which needs network access at configure time)
 Clone the repository **with submodules** so that SFML is available:
 
 ```bash
-git clone --recurse-submodules <repo-url> pimbalgame
-cd pimbalgame
+git clone --recurse-submodules <repo-url> pinballgame
+cd pinballgame
 ```
 
 If the submodule is already present, initialize/update it:
@@ -245,7 +250,7 @@ cmake ..
 cmake --build .
 ```
 
-The executable will be produced at `build/bin/pimbalgame`.
+The executable will be produced at `build/bin/pinballgame`.
 
 ### Configure & build (Windows)
 
@@ -259,10 +264,10 @@ cmake --build . --config Release
 ## Running
 
 ```bash
-./build/bin/pimbalgame   # Linux / macOS
+./build/bin/pinballgame   # Linux / macOS
 ```
 
-On Windows the executable is at `build\Release\pimbalgame.exe`. The bundled font
+On Windows the executable is at `build\Release\pinballgame.exe`. The bundled font
 is copied next to the executable by the build so it can be located at runtime.
 
 ## Release notes
@@ -301,7 +306,7 @@ lives in those files; the tools are summarised here in the release notes.
 - **Embedded texture atlas for the game.** `assets/*.svg` are now the only
   version-controlled art. At build time the `svg2png` tool rasterizes every SVG
   to a transparent PNG and packs them into a single embeddable C++ header
-  (`textures.cxxpng`) that the game `#include`s; `src/pimbalgame/Textures.cpp`
+  (`textures.cxxpng`) that the game `#include`s; `src/pinballgame/Textures.cpp`
   decodes the in-memory atlas and hands out sprites by name. The game ships no
   image files, and falls back to rendering procedural shapes when configured
   without the art tool (`-DBUILD_TOOLS=OFF`).
@@ -378,7 +383,7 @@ The `svg2png` tool is built only when the project is configured with
   then handed to an `sf::SoundBuffer` wrapped by an `sf::Sound`, which plays on
   loop. Rendering once up front keeps the gameplay audio thread free of
   synthesis; the whole track lives in memory, which is fine for a short loop.
-  A `Music` component (`src/pimbalgame/Music.{hpp,cpp}`) owns the render and
+  A `Music` component (`src/pinballgame/Music.{hpp,cpp}`) owns the render and
   playback; `Game` loads and starts it, resolving the assets next to the
   executable (falling back to `assets/sounds/`). SFML's Audio module is built
   against the system Vorbis/FLAC/Ogg libraries (`SFML_USE_SYSTEM_DEPS=ON`), so no
@@ -394,7 +399,7 @@ The `svg2png` tool is built only when the project is configured with
 - **Procedural sound effects.** In addition to the background music, the game
   now plays short, synthesised blips for gameplay events — plunger pull and
   release, bumper hits, wall and flipper bumps, and the ball draining. A new
-  `SoundEffect` component (`src/pimbalgame/SoundEffect.{hpp,cpp}`) owns them.
+  `SoundEffect` component (`src/pinballgame/SoundEffect.{hpp,cpp}`) owns them.
   Each effect is described by a tiny note language rather than a stored audio
   file, e.g. `"@180 ~square C3e E3e G3e"` (180 BPM, square wave, then the notes
   C3/E3/G3 as eighths). A note is `[A-G][#|b][octave][suffix]` where the suffix
@@ -516,7 +521,7 @@ G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8
 ### v2.13.0
 
 - **Background music is now a pre-rendered Ogg track.** The game's background music no longer
-  needs a SoundFont or a MIDI file at runtime: `src/pimbalgame/Music.{hpp,cpp}` now loads the
+  needs a SoundFont or a MIDI file at runtime: `src/pinballgame/Music.{hpp,cpp}` now loads the
   Ogg Vorbis file `assets/sounds/pinball_pirates.ogg` straight into an `sf::SoundBuffer` and
   plays it on loop through an `sf::Sound`. SFML's Audio module decodes Vorbis natively (it is
   built against the system Ogg/Vorbis/FLAC libraries), so the load path is a single decode

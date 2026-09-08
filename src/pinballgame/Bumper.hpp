@@ -4,7 +4,7 @@
 
 #include "box2d/box2d.h"
 
-namespace pimbalgame
+namespace pinballgame
 {
 class Textures;
 
@@ -43,4 +43,4 @@ private:
     sf::CircleShape mRing;
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

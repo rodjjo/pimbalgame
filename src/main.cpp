@@ -1,7 +1,7 @@
-#include "pimbalgame/Game.hpp"
+#include "pinballgame/Game.hpp"
 
 int main()
 {
-    pimbalgame::Game game;
+    pinballgame::Game game;
     return game.run();
 }

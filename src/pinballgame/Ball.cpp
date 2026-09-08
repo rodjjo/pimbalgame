@@ -1,8 +1,8 @@
-#include "pimbalgame/Ball.hpp"
-#include "pimbalgame/Textures.hpp"
+#include "pinballgame/Ball.hpp"
+#include "pinballgame/Textures.hpp"
 #include <cmath>
 
-namespace pimbalgame
+namespace pinballgame
 {
 Ball::Ball()
 {
@@ -48,4 +48,4 @@ void Ball::render(sf::RenderWindow& window, const Textures& tex) const
     window.draw(s);
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

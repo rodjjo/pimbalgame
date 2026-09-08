@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 # ---------------------------------------------------------------------------
 # Project
 # ---------------------------------------------------------------------------
-project(PimBalGame
+project(PinballGame
     VERSION 0.1.0
     DESCRIPTION "A pinball game built with SFML"
     LANGUAGES CXX

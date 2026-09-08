@@ -5,7 +5,7 @@
 // game renders real art without carrying any image files.
 #include "textures.cxxpng"
 
-namespace pimbalgame
+namespace pinballgame
 {
 bool Textures::load()
 {
@@ -74,4 +74,4 @@ sf::IntRect Textures::rect(const std::string& name) const
                        sf::Vector2i(static_cast<int>(c.width), static_cast<int>(c.height)));
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

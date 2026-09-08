@@ -121,7 +121,7 @@ const auto& rect = texture_atlas::textures().at("ball");
 At build time the `src/` `CMakeLists.txt` rasterizes every `assets/*.svg` to a
 PNG (with `png --transparent`) and packs them all into a single embeddable header
 (`textures.cxxpng`) with `texture`, then `#include`s that header into the game.
-`src/pimbalgame/Textures.cpp` decodes the in-memory atlas bytes and hands out
+`src/pinballgame/Textures.cpp` decodes the in-memory atlas bytes and hands out
 `sf::Sprite`s by name, so the game ships no image files at all — the only art
 that is version-controlled is the SVG source. See the project
 [README](../README.md#release-notes) release notes.

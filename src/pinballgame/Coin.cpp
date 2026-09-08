@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -119,4 +119,4 @@ void Coin::render(sf::RenderWindow& window, const Textures& tex) const
     window.draw(s);
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

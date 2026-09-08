@@ -2,7 +2,7 @@
 #include "Textures.hpp"
 #include <algorithm>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -89,4 +89,4 @@ void Bumper::render(sf::RenderWindow& window, const Textures& tex) const
     }
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

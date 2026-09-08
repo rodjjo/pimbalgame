@@ -370,7 +370,7 @@ namespace
             "Options:\n"
             "  --save-path <p>         Output MIDI file path (required).\n"
             "  --instruction <s>       The melody (see the language below).\n"
-            "                          Defaults to a ready-made PimBalGame theme.\n"
+            "                          Defaults to a ready-made PinballGame theme.\n"
             "  --tempo <bpm>           Beats per minute (default 120).\n"
             "  --duration <seconds>    Target file length in seconds (default 20).\n"
             "  -?, --help              Show this help.\n"
@@ -478,8 +478,8 @@ namespace
             raw.push_back(std::move(m));
         };
         meta(0x03, "text2mid");
-        meta(0x0F, voices.size() == 1 ? "PimBalGame theme"
-                                      : "PimBalGame multi-voice theme");
+        meta(0x0F, voices.size() == 1 ? "PinballGame theme"
+                                      : "PinballGame multi-voice theme");
 
         // meta: set tempo. Microseconds per quarter note = 60,000,000 / bpm.
         const uint32_t microPerBeat =

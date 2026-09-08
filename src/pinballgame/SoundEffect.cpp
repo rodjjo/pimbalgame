@@ -1,9 +1,9 @@
-#include "pimbalgame/SoundEffect.hpp"
+#include "pinballgame/SoundEffect.hpp"
 
 #include <cmath>
 #include <sstream>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -428,4 +428,4 @@ void SoundEffect::setSfxVolume(float volume)
     }
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

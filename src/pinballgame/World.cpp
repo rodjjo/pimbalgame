@@ -1,12 +1,12 @@
-#include "pimbalgame/World.hpp"
-#include "pimbalgame/Physics.hpp"
+#include "pinballgame/World.hpp"
+#include "pinballgame/Physics.hpp"
 #include "box2d/box2d.h"
 #include "box2d/math_functions.h"
 #include <algorithm>
 #include <cmath>
 #include <optional>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -1051,4 +1051,4 @@ void World::resetBall()
     b2Body_SetAwake(mBallBody, true);
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

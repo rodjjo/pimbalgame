@@ -1,10 +1,10 @@
-#include "pimbalgame/Menu.hpp"
+#include "pinballgame/Menu.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -522,7 +522,7 @@ void Menu::render(sf::RenderWindow& window)
 
 void Menu::renderMain(sf::RenderWindow& window)
 {
-    mTitle.setString("PimBalGame");
+    mTitle.setString("PinballGame");
     mTitle.setFillColor(kAccent);
     mTitle.setPosition(sf::Vector2f(kW / 2.f, 110.f));
     window.draw(mTitle);
@@ -661,4 +661,4 @@ void Menu::renderSliders(sf::RenderWindow& window)
     }
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

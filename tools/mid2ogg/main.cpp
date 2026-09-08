@@ -10,7 +10,7 @@
 //   1. Loads the SoundFont (.sf2) with TinySoundFont (tsf.h).
 //   2. Loads the MIDI (tml.h) and replays its messages on a virtual clock,
 //      asking TinySoundFont to synthesise the audio the same way the game does
-//      (see src/pimbalgame/Music.cpp).
+//      (see src/pinballgame/Music.cpp).
 //   3. Collects the interleaved 16-bit / 44.1 kHz PCM and hands it to SFML,
 //      which encodes and writes it straight to an Ogg Vorbis file.
 //
@@ -175,7 +175,7 @@ namespace
     }
 
     // Play every MIDI message due up to (and including) `currentTimeMs`. Mirrors
-    // the in-game playback in src/pimbalgame/Music.cpp.
+    // the in-game playback in src/pinballgame/Music.cpp.
     void advanceMidi(tml_message*& next, tsf* soundFont, double currentTimeMs)
     {
         while (next != nullptr && next->time <= static_cast<unsigned int>(currentTimeMs))

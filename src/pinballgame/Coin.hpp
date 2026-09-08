@@ -4,7 +4,7 @@
 
 #include "box2d/box2d.h"
 
-namespace pimbalgame
+namespace pinballgame
 {
 class Textures;
 
@@ -73,4 +73,4 @@ private:
     b2BodyId mBody{b2_nullBodyId};
 };
 
-} // namespace pimbalgame
+} // namespace pinballgame

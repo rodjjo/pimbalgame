@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace pimbalgame
+namespace pinballgame
 {
 // Returns the point on the segment [a, b] closest to `p`.
 inline sf::Vector2f ClosestPointOnSegment(const sf::Vector2f& p,
@@ -23,4 +23,4 @@ inline sf::Vector2f ClosestPointOnSegment(const sf::Vector2f& p,
     return a + ab * t;
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame

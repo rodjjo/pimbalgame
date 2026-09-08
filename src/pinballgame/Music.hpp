@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <memory>
 
-namespace pimbalgame
+namespace pinballgame
 {
 // Continuous background music.
 //
@@ -44,4 +44,4 @@ private:
     sf::SoundBuffer mBuffer;                    // SFML buffer holding the audio
     std::unique_ptr<sf::Sound> mSound;          // SFML playback source (built in load())
 };
-} // namespace pimbalgame
+} // namespace pinballgame

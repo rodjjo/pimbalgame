@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-namespace pimbalgame
+namespace pinballgame
 {
 // Procedural sound effects.
 //
@@ -169,4 +169,4 @@ private:
 
     bool mMuted = false;
 };
-} // namespace pimbalgame
+} // namespace pinballgame

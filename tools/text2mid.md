@@ -6,7 +6,7 @@ A small, self-contained C++17 tool for synthesising a **Standard MIDI File**
 It is used to author the game's background music without any third-party audio
 libraries: the tool only parses a melody and writes bytes, and the game renders
 the resulting MIDI against a sound font at load time (see
-`src/pimbalgame/Music.cpp`). The tool links against the C++ standard library
+`src/pinballgame/Music.cpp`). The tool links against the C++ standard library
 alone and is built whenever `-DBUILD_TOOLS=ON` (the default). Its source lives
 in [`tools/text2mid/main.cpp`](tools/text2mid/main.cpp).
 

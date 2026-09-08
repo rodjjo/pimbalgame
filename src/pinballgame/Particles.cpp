@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <random>
 
-namespace pimbalgame
+namespace pinballgame
 {
 namespace
 {
@@ -143,4 +143,4 @@ void Particles::renderEmbers(sf::RenderWindow& window) const
     }
 }
 
-} // namespace pimbalgame
+} // namespace pinballgame
