@@ -397,21 +397,37 @@ The `svg2png` tool is built only when the project is configured with
 ### v2.5.0
 
 - **Procedural sound effects.** In addition to the background music, the game
-  now plays short, synthesised blips for gameplay events — plunger pull and
-  release, bumper hits, wall and flipper bumps, and the ball draining. A new
-  `SoundEffect` component (`src/pinballgame/SoundEffect.{hpp,cpp}`) owns them.
-  Each effect is described by a tiny note language rather than a stored audio
-  file, e.g. `"@180 ~square C3e E3e G3e"` (180 BPM, square wave, then the notes
-  C3/E3/G3 as eighths). A note is `[A-G][#|b][octave][suffix]` where the suffix
-  sets the duration (`w`/`h`/`q`/`e`/`s`/`t` = whole/half/quarter/eighth/
-  sixteenth/triplet); `R` is a rest and `~<waveform>` picks `sine`, `square`,
-  `saw` or `triangle`. Every effect is rendered once at construction into a
-  cached PCM `std::vector` (the bank is a `std::map<std::string,
-  std::vector<std::int16_t>>`), then handed to an `sf::SoundBuffer` played over
-  a small 8-voice pool, so the per-frame cost is just a map lookup and a cheap
-  replay — no synthesis on the main loop. `World` triggers the effects from the
-  plunger edge transitions, ball<->bumper/wall/flipper contact events and the
-  drain check; `Game` builds the bank and shares it with the `World`.
+   now plays synthesised sounds for gameplay events — plunger pull and release,
+   bumper hits, wall and flipper bumps, coin pickups and the ball draining. A new
+   `SoundEffect` component (`src/pinballgame/SoundEffect.{hpp,cpp}`) owns them,
+   using a tiny note language rather than stored audio files. Two families of
+   effect live side by side:
+   - **Tonal effects** (plunger pull/release, ball drain) are short melodic
+     snippets described by the note language, e.g. `"@180 ~square C3e E3e G3e"`
+     (180 BPM, square wave, then C3/E3/G3 as eighths). A note is
+     `[A-G][#|b][octave][suffix]` where the suffix sets the duration
+     (`w`/`h`/`q`/`e`/`s`/`t` = whole/half/quarter/eighth/sixteenth/triplet);
+     `R` is a rest and `~<waveform>` picks `sine`, `square`, `saw` or
+     `triangle`. They are rendered once at construction into a cached PCM
+     `std::vector` and simply replayed, so the per-frame cost is just a map
+     lookup and a cheap restart.
+   - **Metallic impact effects** (ball vs. bumper / wall / flipper / coin) are
+     rendered *on the fly*, per hit, from an impact-speed value. A strike is
+     modelled as a short broadband noise "crack" summed with several
+     inharmonic, exponentially-decaying partials (the way a struck steel plate
+     or bell sounds). The ball's speed at contact scales the pitch, brightness,
+     number of partials, ring length and overall level, so a gentle tap sounds
+     dull and short while a hard hit rings bright and long -- matching real
+     pinball physics instead of a fixed chime.
+
+   Playback is decoupled from the game loop: `play()` just enqueues the effect
+   name (and, for impacts, the impact speed) onto a small bounded queue and
+   returns immediately; two worker threads drain it and play in parallel on the
+   shared SFML audio device (the same one the music uses). Each worker owns its
+   own private voice bank, so the two workers run without locking on the hot
+   path. `World` triggers the effects from the plunger edge transitions,
+   ball<->bumper/wall/flipper/coin contact events and the drain check; `Game`
+   builds the bank and shares it with the `World`.
 
 ### v2.7.0
 

@@ -699,7 +699,7 @@ void World::processContacts()
         {
             if (mSound)
             {
-                mSound->play("ball_hit_wall");
+                mSound->play("ball_hit_wall", mBall.velocity.length());
             }
             continue;
         }
@@ -730,7 +730,7 @@ void World::processContacts()
                     mScore += kCoinScore;
                     if (mSound)
                     {
-                        mSound->play("ball_hit_coin");
+                        mSound->play("ball_hit_coin", mBall.velocity.length());
                     }
                     // Burst of gold sparks at the contact point.
                     const sf::Vector2f contact = mBall.position - diff / dist * mBall.radius;
@@ -768,11 +768,11 @@ void World::processContacts()
             {
                 if (hitWall)
                 {
-                    mSound->play("ball_hit_wall");
+                    mSound->play("ball_hit_wall", mBall.velocity.length());
                 }
                 else if (hitFlipper)
                 {
-                    mSound->play("ball_hit_flipper");
+                    mSound->play("ball_hit_flipper", mBall.velocity.length());
                 }
             }
             // A non-bumper contact (wall / flipper / launch pad) is already
@@ -807,7 +807,7 @@ void World::processContacts()
             bumper->hit();
             if (mSound)
             {
-                mSound->play("ball_hit_bumper");
+                mSound->play("ball_hit_bumper", mBall.velocity.length());
             }
             mScore += bumper->score();
 
