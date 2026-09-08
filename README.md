@@ -481,7 +481,7 @@ The `svg2png` tool is built only when the project is configured with
     ```bash
     text2mid --save-path assets/sounds/flipper_fever.mid \
       --instruction "tempo 132 E2/8 E2/8 E2/16 E2/16 B1/8 A2/8 A2/16 A2/16 C3/8 B2/8 \
-G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
+      G2/8 G2/8 G2/16 G2/16 A2/8 B2/8 B2/16 B2/16 C3/8 D3/8 C3/8 C3/8 C3/16 C3/16 B2/8 A2/8 A2/16 A2/16 B1/8 B2/8 B1+F#2+B2/1"
     ```
 
 > _Retired in [v2.13.0](#v2130): `assets/sounds/flipper_fever.mid` was removed along with the
